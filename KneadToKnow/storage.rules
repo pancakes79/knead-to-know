@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Knead to Know — Firebase Storage Security Rules
+//
+// HOW TO DEPLOY:
+//   1. Go to Firebase Console → Storage → Rules tab
+//   2. Replace the default rules with this entire file
+//   3. Click "Publish"
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ─── Bake Photos ───
+    // Allow uploading and reading photos in the bake-photos folder
+    match /bake-photos/{recipeId}/{fileName} {
+      // Anyone can read photos (needed to display them in the app)
+      allow read: if true;
+      
+      // Allow uploads with basic validation
+      allow write: if request.resource != null
+        // Must be an image
+        && request.resource.contentType.matches('image/.*')
+        // Max 10MB per photo
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // ─── Deny everything else ───
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

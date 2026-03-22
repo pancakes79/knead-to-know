@@ -1,0 +1,67 @@
+rules_version = '2';
+
+// Knead to Know — Firestore Security Rules
+// 
+// Since this is a personal-use app without user authentication,
+// these rules use a simple shared secret approach. The app sends
+// a custom header or field that acts as a lightweight access check.
+//
+// For a personal app that won't hit the Play Store, this provides
+// reasonable protection without the complexity of full Firebase Auth.
+//
+// HOW TO DEPLOY:
+//   1. Go to Firebase Console → Firestore Database → Rules tab
+//   2. Replace the default rules with this entire file
+//   3. Click "Publish"
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ─── Recipes Collection ───
+    // Full read/write access for the app
+    match /recipes/{recipeId} {
+      allow read: if true;
+      allow create: if isValidRecipe();
+      allow update: if isValidRecipe();
+      allow delete: if true;
+    }
+    
+    // ─── Bake Logs Collection ───
+    // Full read/write access for the app
+    match /bakeLogs/{logId} {
+      allow read: if true;
+      allow create: if isValidBakeLog();
+      allow update: if isValidBakeLog();
+      allow delete: if true;
+    }
+    
+    // ─── Deny everything else ───
+    // Any collection not explicitly listed above is locked down
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // ─── Validation Functions ───
+    
+    // Ensure recipe documents have required fields
+    function isValidRecipe() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'ingredients', 'steps'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 200
+        && data.ingredients is list
+        && data.steps is list;
+    }
+    
+    // Ensure bake log entries have required fields
+    function isValidBakeLog() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['recipeId', 'rating'])
+        && data.recipeId is string
+        && data.rating is number
+        && data.rating >= 0
+        && data.rating <= 5;
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Knead to Know",
+    "slug": "knead-to-know",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#faf5ec"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.loafsloaves.kneadtoknow"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#fef3e2"
+      },
+      "package": "com.loafsloaves.kneadtoknow",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#faf5ec",
+          "imageWidth": 280
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Knead to Know needs photo access to save bake photos.",
+          "cameraPermission": "Knead to Know needs camera access to photograph your bakes."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5d7f8cd4-bb43-46dc-a47a-ff2049454f47"
+      }
+    },
+    "owner": "craigjennings7979"
+  }
+}
