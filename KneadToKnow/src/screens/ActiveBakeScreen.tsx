@@ -7,7 +7,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRecipes } from '../hooks/useRecipes';
 import { StretchFoldTracker } from '../components/StretchFoldTracker';
 import { CountdownTimer } from '../components/CountdownTimer';
