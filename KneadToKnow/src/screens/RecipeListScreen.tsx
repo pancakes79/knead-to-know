@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
@@ -15,12 +15,12 @@ import { RecipeStackParamList, Recipe } from '../types';
 
 type Nav = NativeStackNavigationProp<RecipeStackParamList, 'RecipeList'>;
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+function RecipeCard({ recipe, isCommunity }: { recipe: Recipe; isCommunity?: boolean }) {
   const nav = useNavigation<Nav>();
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, isCommunity && styles.cardCommunity]}
       onPress={() => nav.navigate('RecipeDetail', { recipeId: recipe.id })}
       activeOpacity={0.7}
     >
@@ -29,6 +29,11 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
           <Text style={styles.cardTitle}>{recipe.name}</Text>
           <Text style={styles.cardSource}>{recipe.source}</Text>
         </View>
+        {recipe.visibility === 'shared' && !isCommunity && (
+          <View style={styles.sharedBadge}>
+            <Text style={styles.sharedBadgeText}>Shared</Text>
+          </View>
+        )}
       </View>
       <View style={styles.cardMeta}>
         <Text style={styles.cardMetaText}>
@@ -41,10 +46,20 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
   );
 }
 
+type SectionData = { title: string; data: Recipe[]; isCommunity: boolean };
+
 export function RecipeListScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
-  const { recipes, loading } = useRecipes();
+  const { recipes, communityRecipes, loading } = useRecipes();
+  const [showCommunity, setShowCommunity] = useState(true);
+
+  const sections: SectionData[] = [
+    { title: 'My Recipes', data: recipes, isCommunity: false },
+    ...(showCommunity && communityRecipes.length > 0
+      ? [{ title: 'Community Recipes', data: communityRecipes, isCommunity: true }]
+      : []),
+  ];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -54,31 +69,44 @@ export function RecipeListScreen() {
         <Text style={styles.subtitle}>SOURDOUGH COMPANION</Text>
       </View>
 
-      {/* Add Recipe Button */}
-      <View style={styles.addRow}>
-        <Text style={styles.sectionTitle}>Recipe Bank</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => nav.navigate('ImportRecipe')}
-        >
-          <Text style={styles.addButtonText}>+ Add Recipe</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Recipe List */}
-      <FlatList
-        data={recipes}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <RecipeCard recipe={item} />}
+        renderItem={({ item, section }) => (
+          <RecipeCard recipe={item} isCommunity={(section as SectionData).isCommunity} />
+        )}
+        renderSectionHeader={({ section }) => {
+          const s = section as SectionData;
+          return (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{s.title}</Text>
+              {s.title === 'My Recipes' && (
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => nav.navigate('ImportRecipe')}
+                >
+                  <Text style={styles.addButtonText}>+ Add Recipe</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        }}
+        renderSectionFooter={({ section }) => {
+          const s = section as SectionData;
+          if (s.data.length === 0 && s.title === 'My Recipes') {
+            return (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>
+                  No recipes yet. Tap "+ Add Recipe" to import one!
+                </Text>
+              </View>
+            );
+          }
+          return null;
+        }}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              No recipes yet. Tap "Add Recipe" to import one!
-            </Text>
-          </View>
-        }
+        stickySectionHeadersEnabled={false}
       />
     </View>
   );
@@ -109,12 +137,13 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginTop: 4,
   },
-  addRow: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     marginBottom: spacing.md,
+    marginTop: spacing.lg,
   },
   sectionTitle: {
     fontFamily: fonts.heading,
@@ -143,6 +172,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.border,
+  },
+  cardCommunity: {
+    borderColor: colors.borderLight,
+    borderStyle: 'dashed',
+  },
+  sharedBadge: {
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+  },
+  sharedBadgeText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 11,
+    color: colors.amber,
   },
   cardHeader: {
     flexDirection: 'row',

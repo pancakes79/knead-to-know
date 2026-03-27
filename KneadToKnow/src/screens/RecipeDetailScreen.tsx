@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRecipes } from '../hooks/useRecipes';
+import { useAuth } from '../hooks/useAuth';
+import { toggleRecipeSharing } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
 
@@ -18,9 +21,57 @@ type NavType = NativeStackNavigationProp<RecipeStackParamList, 'RecipeDetail'>;
 export function RecipeDetailScreen() {
   const route = useRoute<RouteType>();
   const nav = useNavigation<NavType>();
-  const { getRecipe } = useRecipes();
+  const { getRecipe, updateRecipe, saveToMyRecipes } = useRecipes();
+  const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
+  const [sharing, setSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const isOwner = recipe && user && recipe.ownerId === user.uid;
+
+  const handleToggleShare = useCallback(async () => {
+    if (!recipe) return;
+    const newVisibility = recipe.visibility === 'shared' ? 'private' : 'shared';
+    const action = newVisibility === 'shared' ? 'share' : 'unshare';
+
+    Alert.alert(
+      newVisibility === 'shared' ? 'Share Recipe' : 'Make Private',
+      newVisibility === 'shared'
+        ? 'This recipe will be visible to all users in the community.'
+        : 'This recipe will only be visible to you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: newVisibility === 'shared' ? 'Share' : 'Make Private',
+          onPress: async () => {
+            setSharing(true);
+            try {
+              await toggleRecipeSharing(recipe.id, newVisibility === 'shared');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || `Failed to ${action} recipe.`);
+            } finally {
+              setSharing(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [recipe]);
+
+  const handleSaveToMyRecipes = useCallback(async () => {
+    if (!recipe) return;
+    setSaving(true);
+    try {
+      await saveToMyRecipes(recipe);
+      Alert.alert('Saved!', 'Recipe has been added to your collection.');
+      nav.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save recipe.');
+    } finally {
+      setSaving(false);
+    }
+  }, [recipe, saveToMyRecipes, nav]);
 
   if (!recipe) {
     return (
@@ -63,6 +114,34 @@ export function RecipeDetailScreen() {
           <Text style={styles.logButtonText}>Bake Log</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Share / Save to My Recipes */}
+      {isOwner && (
+        <TouchableOpacity
+          style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
+          onPress={handleToggleShare}
+          disabled={sharing}
+        >
+          <Text style={styles.shareButtonText}>
+            {sharing
+              ? 'Updating...'
+              : recipe.visibility === 'shared'
+                ? 'Make Private'
+                : 'Share with Community'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {!isOwner && (
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSaveToMyRecipes}
+          disabled={saving}
+        >
+          <Text style={styles.saveButtonText}>
+            {saving ? 'Saving...' : 'Save to My Recipes'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
@@ -196,6 +275,40 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  shareButton: {
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.amber,
+  },
+  shareButtonDisabled: {
+    opacity: 0.6,
+  },
+  shareButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: colors.amber,
+  },
+  saveButton: {
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.amber,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: '#fff',
   },
   tabBar: {
     flexDirection: 'row',
