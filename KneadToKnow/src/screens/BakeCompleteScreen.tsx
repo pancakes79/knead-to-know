@@ -135,7 +135,24 @@ export function BakeCompleteScreen() {
 
       {/* Content */}
       <Animated.View style={[styles.content, { opacity: fadeIn }]}>
-        <Text style={styles.emoji}>🍞</Text>
+        {/* Sourdough boule illustration */}
+        <View style={styles.bouleContainer}>
+          {/* Main round loaf */}
+          <View style={styles.boule}>
+            {/* Crust highlight */}
+            <View style={styles.bouleHighlight} />
+            {/* Score marks */}
+            <View style={styles.scoreMarks}>
+              <View style={[styles.scoreLine, { transform: [{ rotate: '-30deg' }] }]} />
+              <View style={[styles.scoreLine, { transform: [{ rotate: '0deg' }] }]} />
+              <View style={[styles.scoreLine, { transform: [{ rotate: '30deg' }] }]} />
+            </View>
+            {/* Ear/bloom flap */}
+            <View style={styles.earFlap} />
+          </View>
+          {/* Shadow */}
+          <View style={styles.bouleShadow} />
+        </View>
         <Text style={styles.title}>Bake Complete!</Text>
         <Text style={styles.subtitle}>
           Great job! Would you like to log how this bake turned out?
@@ -175,9 +192,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xxxl,
   },
-  emoji: {
-    fontSize: 64,
+  bouleContainer: {
+    alignItems: 'center',
     marginBottom: spacing.xl,
+  },
+  boule: {
+    width: 100,
+    height: 90,
+    borderRadius: 50,
+    backgroundColor: '#D4943A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  bouleHighlight: {
+    position: 'absolute',
+    top: 8,
+    left: 14,
+    width: 50,
+    height: 30,
+    borderRadius: 25,
+    backgroundColor: '#E8B560',
+    opacity: 0.6,
+    transform: [{ rotate: '-15deg' }],
+  },
+  scoreMarks: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: -4,
+  },
+  scoreLine: {
+    width: 2.5,
+    height: 28,
+    backgroundColor: '#F5DEB3',
+    borderRadius: 2,
+  },
+  earFlap: {
+    position: 'absolute',
+    top: 16,
+    right: 18,
+    width: 22,
+    height: 14,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 4,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 14,
+    backgroundColor: '#F5DEB3',
+    opacity: 0.5,
+    transform: [{ rotate: '25deg' }],
+  },
+  bouleShadow: {
+    width: 80,
+    height: 12,
+    borderRadius: 40,
+    backgroundColor: 'rgba(59, 37, 6, 0.08)',
+    marginTop: 6,
   },
   title: {
     fontFamily: fonts.heading,
