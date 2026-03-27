@@ -18,6 +18,7 @@ export interface Recipe {
   name: string;
   source: string;
   ownerId: string;
+  ownerName?: string;
   visibility: 'private' | 'shared';
   createdAt: Date;
   updatedAt?: Date;
@@ -58,13 +59,14 @@ export type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
-  ProfileTab: undefined;
 };
 
 export type RecipeStackParamList = {
   RecipeList: undefined;
   RecipeDetail: { recipeId: string };
+  EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
+  BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
 };

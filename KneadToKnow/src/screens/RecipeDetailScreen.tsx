@@ -7,10 +7,11 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
+import { useActiveBake } from '../hooks/useActiveBake';
 import { toggleRecipeSharing } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
@@ -21,12 +22,14 @@ type NavType = NativeStackNavigationProp<RecipeStackParamList, 'RecipeDetail'>;
 export function RecipeDetailScreen() {
   const route = useRoute<RouteType>();
   const nav = useNavigation<NavType>();
-  const { getRecipe, updateRecipe, saveToMyRecipes } = useRecipes();
+  const { getRecipe, updateRecipe, deleteRecipe, saveToMyRecipes } = useRecipes();
   const { user } = useAuth();
+  const { startBake } = useActiveBake();
   const recipe = getRecipe(route.params.recipeId);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
   const [sharing, setSharing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isOwner = recipe && user && recipe.ownerId === user.uid;
 
@@ -47,7 +50,7 @@ export function RecipeDetailScreen() {
           onPress: async () => {
             setSharing(true);
             try {
-              await toggleRecipeSharing(recipe.id, newVisibility === 'shared');
+              await toggleRecipeSharing(recipe.id);
             } catch (error: any) {
               Alert.alert('Error', error.message || `Failed to ${action} recipe.`);
             } finally {
@@ -72,6 +75,31 @@ export function RecipeDetailScreen() {
       setSaving(false);
     }
   }, [recipe, saveToMyRecipes, nav]);
+
+  const handleDelete = useCallback(() => {
+    if (!recipe) return;
+    Alert.alert(
+      'Delete Recipe',
+      `Are you sure you want to delete "${recipe.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteRecipe(recipe.id);
+              nav.goBack();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete recipe.');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [recipe, deleteRecipe, nav]);
 
   if (!recipe) {
     return (
@@ -103,7 +131,10 @@ export function RecipeDetailScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => nav.navigate('ActiveBake', { recipeId: recipe.id })}
+          onPress={() => {
+            startBake(recipe.id, recipe.name);
+            nav.dispatch(CommonActions.navigate({ name: 'ActiveBakeTab' }));
+          }}
         >
           <Text style={styles.startButtonText}>Start Baking</Text>
         </TouchableOpacity>
@@ -115,21 +146,34 @@ export function RecipeDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Share / Save to My Recipes */}
+      {/* Edit / Share / Delete */}
       {isOwner && (
-        <TouchableOpacity
-          style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
-          onPress={handleToggleShare}
-          disabled={sharing}
-        >
-          <Text style={styles.shareButtonText}>
-            {sharing
-              ? 'Updating...'
-              : recipe.visibility === 'shared'
-                ? 'Make Private'
-                : 'Share with Community'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.ownerActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => nav.navigate('EditRecipe', { recipeId: recipe.id })}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
+            onPress={handleToggleShare}
+            disabled={sharing}
+          >
+            <Text style={styles.shareButtonText}>
+              {sharing ? '...' : recipe.visibility === 'shared' ? 'Unshare' : 'Share'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+            onPress={handleDelete}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteButtonText}>
+              {deleting ? '...' : 'Delete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
       {!isOwner && (
         <TouchableOpacity
@@ -276,12 +320,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textSecondary,
   },
-  shareButton: {
-    marginHorizontal: spacing.xl,
+  ownerActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  editButton: {
+    flex: 1,
     backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  editButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  shareButton: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: colors.amber,
@@ -291,8 +354,25 @@ const styles = StyleSheet.create({
   },
   shareButtonText: {
     fontFamily: fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.amber,
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: '#FCEBEB',
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F7C1C1',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: '#A32D2D',
   },
   saveButton: {
     marginHorizontal: spacing.xl,

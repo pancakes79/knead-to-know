@@ -5,39 +5,45 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useRecipes } from '../hooks/useRecipes';
+import { useActiveBake } from '../hooks/useActiveBake';
 import { StretchFoldTracker } from '../components/StretchFoldTracker';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
-import { RecipeStackParamList } from '../types';
-
-type RouteType = RouteProp<RecipeStackParamList, 'ActiveBake'>;
-
 type ActiveTab = 'ingredients' | 'steps';
 
 export function ActiveBakeScreen() {
-  const route = useRoute<RouteType>();
+  const nav = useNavigation<any>();
   const { getRecipe } = useRecipes();
-
-  // If opened from tab (no params), show a placeholder
-  const recipeId = route.params?.recipeId;
-  const recipe = recipeId ? getRecipe(recipeId) : null;
+  const { activeBake, endBake, toggleIngredient, toggleStep } = useActiveBake();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('ingredients');
-  const [ingredientChecks, setIngredientChecks] = useState<Record<string, boolean>>({});
-  const [stepChecks, setStepChecks] = useState<Record<string, boolean>>({});
 
-  const toggleIngredient = useCallback((id: string) => {
-    setIngredientChecks((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+  const recipe = activeBake ? getRecipe(activeBake.recipeId) : null;
 
-  const toggleStep = useCallback((id: string) => {
-    setStepChecks((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+  const handleFinishBake = useCallback(() => {
+    if (!activeBake) return;
+    Alert.alert(
+      'Finish Bake',
+      'Are you sure you want to finish this bake?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Finish',
+          onPress: () => {
+            const recipeId = activeBake.recipeId;
+            endBake();
+            nav.navigate('BakeComplete', { recipeId });
+          },
+        },
+      ]
+    );
+  }, [activeBake, endBake, nav]);
 
-  if (!recipe) {
+  if (!activeBake || !recipe) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🍞</Text>
@@ -49,8 +55,11 @@ export function ActiveBakeScreen() {
     );
   }
 
+  const ingredientChecks = activeBake.ingredientChecks;
+  const stepChecks = activeBake.stepChecks;
   const ingredientsDone = recipe.ingredients.filter((i) => ingredientChecks[i.id]).length;
   const stepsDone = recipe.steps.filter((s) => stepChecks[s.id]).length;
+  const allStepsDone = stepsDone === recipe.steps.length;
 
   return (
     <View style={styles.container}>
@@ -171,6 +180,21 @@ export function ActiveBakeScreen() {
                 </TouchableOpacity>
               );
             })}
+
+            {/* Finish Bake button */}
+            <TouchableOpacity
+              style={[styles.finishButton, !allStepsDone && styles.finishButtonInactive]}
+              onPress={handleFinishBake}
+            >
+              <Text style={[styles.finishButtonText, !allStepsDone && styles.finishButtonTextInactive]}>
+                Finish Bake
+              </Text>
+            </TouchableOpacity>
+            {!allStepsDone && (
+              <Text style={styles.finishHint}>
+                Complete all steps to finish, or tap to finish early.
+              </Text>
+            )}
           </View>
         )}
 
@@ -343,5 +367,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.amber,
     marginTop: 4,
+  },
+  finishButton: {
+    backgroundColor: colors.success,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md + 4,
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  finishButtonInactive: {
+    backgroundColor: colors.bgCard,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  finishButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 16,
+    color: '#fff',
+  },
+  finishButtonTextInactive: {
+    color: colors.textMuted,
+  },
+  finishHint: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });

@@ -12,11 +12,12 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { RecipeListScreen } from '../screens/RecipeListScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
+import { EditRecipeScreen } from '../screens/EditRecipeScreen';
 import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
 import { ProofingScreen } from '../screens/ProofingScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
+import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
 
 // ─── Tab Icons ───
 
@@ -62,8 +63,10 @@ function TabIcon({ label, color, size }: { label: string; color: string; size: n
 type RecipeStackParamList = {
   RecipeList: undefined;
   RecipeDetail: { recipeId: string };
+  EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
+  BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
 };
 
@@ -72,7 +75,6 @@ type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
-  ProfileTab: undefined;
 };
 
 // ─── Recipe Stack ───
@@ -91,10 +93,39 @@ function RecipeStackNavigator() {
     >
       <RecipeStack.Screen name="RecipeList" component={RecipeListScreen} options={{ headerShown: false }} />
       <RecipeStack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ title: 'Recipe' }} />
+      <RecipeStack.Screen name="EditRecipe" component={EditRecipeScreen} options={{ title: 'Edit Recipe' }} />
       <RecipeStack.Screen name="ImportRecipe" component={ImportRecipeScreen} options={{ title: 'Import Recipe', presentation: 'modal' }} />
       <RecipeStack.Screen name="ActiveBake" component={ActiveBakeScreen} options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }} />
+      <RecipeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ title: 'Bake Complete', headerShown: false }} />
       <RecipeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
     </RecipeStack.Navigator>
+  );
+}
+
+// ─── Bake Stack ───
+
+type BakeStackParamList = {
+  ActiveBakeMain: undefined;
+  BakeComplete: { recipeId: string };
+  BakeLog: { recipeId: string };
+};
+
+const BakeStack = createNativeStackNavigator<BakeStackParamList>();
+
+function BakeStackNavigator() {
+  return (
+    <BakeStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <BakeStack.Screen name="ActiveBakeMain" component={ActiveBakeScreen} options={{ title: 'Active Bake' }} />
+      <BakeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ headerShown: false }} />
+      <BakeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
+    </BakeStack.Navigator>
   );
 }
 
@@ -103,9 +134,6 @@ function RecipeStackNavigator() {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 function AuthenticatedApp() {
-  const { user } = useAuth();
-  const initial = (user?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -156,7 +184,7 @@ function AuthenticatedApp() {
       />
       <Tab.Screen
         name="ActiveBakeTab"
-        component={ActiveBakeScreen}
+        component={BakeStackNavigator}
         options={{
           tabBarLabel: 'Bake',
           tabBarIcon: ({ color }) => (
@@ -178,34 +206,6 @@ function AuthenticatedApp() {
               <View style={[styles.tabIconCircle, { borderColor: color }]}>
                 <View style={[styles.tabIconGear, { backgroundColor: color }]} />
               </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: initial,
-          tabBarIcon: ({ color }) => (
-            <View style={[styles.profileIcon, {
-              borderColor: color,
-              backgroundColor: color === colors.amber ? colors.cream : 'transparent',
-            }]}>
-              <View style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: color,
-                marginBottom: 1,
-              }} />
-              <View style={{
-                width: 16,
-                height: 8,
-                borderTopLeftRadius: 8,
-                borderTopRightRadius: 8,
-                backgroundColor: color,
-              }} />
             </View>
           ),
         }}
@@ -300,14 +300,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  profileIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
   },
 });

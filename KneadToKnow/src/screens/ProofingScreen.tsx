@@ -4,13 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProofingEstimate, cToF, fToC, PROOFING_CHART } from '../constants/proofingData';
-import { getHATemperature } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type TempUnit = 'F' | 'C';
@@ -19,7 +16,6 @@ export function ProofingScreen() {
   const insets = useSafeAreaInsets();
   const [tempF, setTempF] = useState(72);
   const [unit, setUnit] = useState<TempUnit>('F');
-  const [loadingHA, setLoadingHA] = useState(false);
 
   const displayTemp = unit === 'F' ? tempF : fToC(tempF);
   const estimate = getProofingEstimate(tempF);
@@ -35,20 +31,6 @@ export function ProofingScreen() {
       setTempF(cToF(Math.round(value)));
     }
   }, [unit]);
-
-  const handleHAPull = useCallback(async () => {
-    setLoadingHA(true);
-    try {
-      const result = await getHATemperature();
-      setTempF(Math.round(result.tempF));
-      setUnit('F');
-      Alert.alert('Temperature Updated', `${result.sensorName}: ${Math.round(result.tempF)}°F`);
-    } catch (error: any) {
-      Alert.alert('Home Assistant Error', error.message);
-    } finally {
-      setLoadingHA(false);
-    }
-  }, []);
 
   const sliderMin = unit === 'F' ? 60 : 15;
   const sliderMax = unit === 'F' ? 85 : 30;
@@ -107,18 +89,10 @@ export function ProofingScreen() {
           </View>
         </View>
 
-        {/* Home Assistant button */}
-        <TouchableOpacity
-          style={styles.haButton}
-          onPress={handleHAPull}
-          disabled={loadingHA}
-        >
-          {loadingHA ? (
-            <ActivityIndicator color={colors.golden} size="small" />
-          ) : (
-            <Text style={styles.haText}>🏠 Pull from Home Assistant</Text>
-          )}
-        </TouchableOpacity>
+        {/* Auto-temp hint */}
+        <Text style={styles.autoTempHint}>
+          You can set up automatic temperature detection in Settings.
+        </Text>
       </View>
 
       {/* Reference chart */}
@@ -248,19 +222,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.golden,
   },
-  haButton: {
-    backgroundColor: 'rgba(232, 168, 73, 0.1)',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(232, 168, 73, 0.2)',
-    borderStyle: 'dashed',
-  },
-  haText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
+  autoTempHint: {
+    fontFamily: fonts.body,
+    fontSize: 12,
     color: colors.textLight,
+    textAlign: 'center',
+    opacity: 0.7,
   },
   chartSection: {
     paddingHorizontal: spacing.xl,

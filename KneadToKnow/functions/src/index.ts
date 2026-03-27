@@ -47,7 +47,7 @@ function getAnthropicClient(): Anthropic {
   return new Anthropic({ apiKey: key });
 }
 
-const RECIPE_PARSE_PROMPT = `You are a recipe parser for a sourdough bread baking app. Extract the recipe into structured JSON.
+const RECIPE_PARSE_PROMPT = `You are a recipe parser for a sourdough bread baking app. Extract the COMPLETE recipe into structured JSON.
 
 Return ONLY valid JSON (no markdown fences) with this exact shape:
 {
@@ -59,17 +59,22 @@ Return ONLY valid JSON (no markdown fences) with this exact shape:
   "steps": [
     { "id": "s1", "text": "Mix flour and water...", "type": "step", "sortOrder": 0 },
     { "id": "s2", "text": "Stretch and fold every 30 min, 4 sets", "type": "stretch_folds", "sortOrder": 1 },
-    { "id": "s3", "text": "Bulk ferment until doubled, 4-6 hours", "type": "proof", "sortOrder": 2 }
+    { "id": "s3", "text": "Bulk ferment until doubled, 4-6 hours", "type": "proof", "sortOrder": 2 },
+    { "id": "s4", "text": "Preheat Dutch oven at 450°F for 45 min", "type": "step", "sortOrder": 3 },
+    { "id": "s5", "text": "Bake covered 20 min, uncovered 20-25 min until deep golden", "type": "step", "sortOrder": 4 }
   ]
 }
+
+CRITICAL RULES:
+1. INGREDIENTS MUST INCLUDE EXACT QUANTITIES — always include weights, volumes, or measurements (e.g. "500g bread flour" NOT just "bread flour"). If the recipe lists amounts, you MUST preserve them. If baker's percentages are given, include those too.
+2. EVERY STEP must be included — do NOT stop at fermentation. You MUST include shaping, scoring, preheating, baking temperatures, baking times, cooling, and any other steps from the original recipe. A bread recipe is not complete without baking instructions.
+3. Include ALL steps from start to finish — prep, mixing, folding, fermenting, shaping, proofing, baking, and cooling.
 
 Rules for the "type" field:
 - "stretch_folds" if the step involves stretch and folds, coil folds, or lamination
 - "proof" if the step is bulk fermentation, proofing, cold retard, or rising
-- "step" for everything else
+- "step" for everything else (including mixing, shaping, scoring, baking, cooling)
 
-Keep ingredient text concise but complete (include baker's percentages if present).
-Keep step text clear and actionable.
 If the recipe name isn't obvious, generate a descriptive one.`;
 
 async function parseRecipeWithClaude(
@@ -81,7 +86,7 @@ async function parseRecipeWithClaude(
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [
       {
         role: "user",
@@ -112,12 +117,22 @@ async function parseRecipeWithClaude(
     throw new HttpsError("internal", "Claude returned an incomplete recipe.");
   }
 
+  // Look up owner's display name for community sharing
+  let ownerName = "Anonymous Baker";
+  try {
+    const userDoc = await db.doc(`users/${uid}`).get();
+    ownerName = userDoc.data()?.displayName || userDoc.data()?.email || ownerName;
+  } catch {
+    // Fall back to default
+  }
+
   // Save to Firestore
   const recipeRef = db.collection("recipes").doc();
   await recipeRef.set({
     name: parsed.name,
     source,
     ownerId: uid,
+    ownerName,
     visibility: "private",
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
