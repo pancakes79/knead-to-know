@@ -277,7 +277,18 @@ export function ActiveBakeScreen() {
   if (activeBakes.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🍞</Text>
+        <View style={styles.bouleContainer}>
+          <View style={styles.boule}>
+            <View style={styles.bouleHighlight} />
+            <View style={styles.scoreMarks}>
+              <View style={[styles.scoreLine, { transform: [{ rotate: '-30deg' }] }]} />
+              <View style={[styles.scoreLine, { transform: [{ rotate: '0deg' }] }]} />
+              <View style={[styles.scoreLine, { transform: [{ rotate: '30deg' }] }]} />
+            </View>
+            <View style={styles.earFlap} />
+          </View>
+          <View style={styles.bouleShadow} />
+        </View>
         <Text style={styles.emptyTitle}>No Active Bakes</Text>
         <Text style={styles.emptyText}>
           Go to a recipe and tap "Start Baking" to begin tracking your bake here.
@@ -377,9 +388,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xxxl,
   },
-  emptyIcon: {
-    fontSize: 48,
+  bouleContainer: {
+    alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+  boule: {
+    width: 80,
+    height: 72,
+    borderRadius: 40,
+    backgroundColor: '#D4943A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  bouleHighlight: {
+    position: 'absolute',
+    top: 6,
+    left: 11,
+    width: 40,
+    height: 24,
+    borderRadius: 20,
+    backgroundColor: '#E8B560',
+    opacity: 0.6,
+    transform: [{ rotate: '-15deg' }],
+  },
+  scoreMarks: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: -3,
+  },
+  scoreLine: {
+    width: 2,
+    height: 22,
+    backgroundColor: '#F5DEB3',
+    borderRadius: 2,
+  },
+  earFlap: {
+    position: 'absolute',
+    top: 13,
+    right: 14,
+    width: 18,
+    height: 11,
+    borderTopLeftRadius: 11,
+    borderTopRightRadius: 3,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 11,
+    backgroundColor: '#F5DEB3',
+    opacity: 0.5,
+    transform: [{ rotate: '25deg' }],
+  },
+  bouleShadow: {
+    width: 64,
+    height: 10,
+    borderRadius: 32,
+    backgroundColor: 'rgba(59, 37, 6, 0.08)',
+    marginTop: 5,
   },
   emptyTitle: {
     fontFamily: fonts.heading,
