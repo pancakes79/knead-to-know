@@ -141,14 +141,14 @@ export function RecipeDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Edit / Share / Save to My Recipes */}
+      {/* Edit / Share / Delete */}
       {isOwner && (
         <View style={styles.ownerActions}>
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => nav.navigate('EditRecipe', { recipeId: recipe.id })}
           >
-            <Text style={styles.editButtonText}>Edit Recipe</Text>
+            <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
@@ -156,11 +156,7 @@ export function RecipeDetailScreen() {
             disabled={sharing}
           >
             <Text style={styles.shareButtonText}>
-              {sharing
-                ? 'Updating...'
-                : recipe.visibility === 'shared'
-                  ? 'Make Private'
-                  : 'Share with Community'}
+              {sharing ? '...' : recipe.visibility === 'shared' ? 'Unshare' : 'Share'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -169,7 +165,7 @@ export function RecipeDetailScreen() {
             disabled={deleting}
           >
             <Text style={styles.deleteButtonText}>
-              {deleting ? 'Deleting...' : 'Delete Recipe'}
+              {deleting ? '...' : 'Delete'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -320,27 +316,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   ownerActions: {
+    flexDirection: 'row',
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
   editButton: {
+    flex: 1,
     backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: colors.border,
   },
   editButtonText: {
     fontFamily: fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   shareButton: {
+    flex: 1,
     backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: colors.amber,
@@ -350,13 +349,14 @@ const styles = StyleSheet.create({
   },
   shareButtonText: {
     fontFamily: fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.amber,
   },
   deleteButton: {
+    flex: 1,
     backgroundColor: '#FCEBEB',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#F7C1C1',
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontFamily: fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: '#A32D2D',
   },
   saveButton: {
