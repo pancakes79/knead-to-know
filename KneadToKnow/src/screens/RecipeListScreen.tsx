@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,9 @@ function RecipeCard({ recipe, isCommunity }: { recipe: Recipe; isCommunity?: boo
           </View>
         )}
       </View>
+      {isCommunity && recipe.ownerName && (
+        <Text style={styles.cardOwner}>Shared by {recipe.ownerName}</Text>
+      )}
       <View style={styles.cardMeta}>
         <Text style={styles.cardMetaText}>
           {recipe.ingredients.length} ingredients
@@ -52,13 +55,10 @@ export function RecipeListScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
   const { recipes, communityRecipes, loading } = useRecipes();
-  const [showCommunity, setShowCommunity] = useState(true);
 
   const sections: SectionData[] = [
     { title: 'My Recipes', data: recipes, isCommunity: false },
-    ...(showCommunity && communityRecipes.length > 0
-      ? [{ title: 'Community Recipes', data: communityRecipes, isCommunity: true }]
-      : []),
+    { title: 'Community Recipes', data: communityRecipes, isCommunity: true },
   ];
 
   return (
@@ -98,6 +98,15 @@ export function RecipeListScreen() {
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>
                   No recipes yet. Tap "+ Add Recipe" to import one!
+                </Text>
+              </View>
+            );
+          }
+          if (s.data.length === 0 && s.title === 'Community Recipes') {
+            return (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>
+                  No community recipes yet. Share one of yours to get things started!
                 </Text>
               </View>
             );
@@ -203,6 +212,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.textMuted,
+  },
+  cardOwner: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.golden,
+    marginTop: spacing.sm,
   },
   cardMeta: {
     flexDirection: 'row',

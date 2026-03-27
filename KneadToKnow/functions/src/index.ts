@@ -117,12 +117,22 @@ async function parseRecipeWithClaude(
     throw new HttpsError("internal", "Claude returned an incomplete recipe.");
   }
 
+  // Look up owner's display name for community sharing
+  let ownerName = "Anonymous Baker";
+  try {
+    const userDoc = await db.doc(`users/${uid}`).get();
+    ownerName = userDoc.data()?.displayName || userDoc.data()?.email || ownerName;
+  } catch {
+    // Fall back to default
+  }
+
   // Save to Firestore
   const recipeRef = db.collection("recipes").doc();
   await recipeRef.set({
     name: parsed.name,
     source,
     ownerId: uid,
+    ownerName,
     visibility: "private",
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

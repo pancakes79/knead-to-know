@@ -18,6 +18,7 @@ export interface Recipe {
   name: string;
   source: string;
   ownerId: string;
+  ownerName?: string;
   visibility: 'private' | 'shared';
   createdAt: Date;
   updatedAt?: Date;

@@ -105,11 +105,12 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, [user?.uid]);
 
-  const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'visibility' | 'totalBakes'>) => {
+  const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'ownerName' | 'visibility' | 'totalBakes'>) => {
     if (!user) throw new Error('Must be signed in to add recipes');
     const docRef = await addDoc(collection(db, 'recipes'), {
       ...recipe,
       ownerId: user.uid,
+      ownerName: user.displayName || user.email || 'Anonymous Baker',
       visibility: 'private',
       totalBakes: 0,
       createdAt: serverTimestamp(),
@@ -137,10 +138,11 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
   // Copy a community recipe to the current user's collection
   const saveToMyRecipes = useCallback(async (recipe: Recipe) => {
     if (!user) throw new Error('Must be signed in');
-    const { id, ownerId, visibility, createdAt, updatedAt, totalBakes, ...recipeData } = recipe;
+    const { id, ownerId, ownerName, visibility, createdAt, updatedAt, totalBakes, ...recipeData } = recipe;
     const docRef = await addDoc(collection(db, 'recipes'), {
       ...recipeData,
       ownerId: user.uid,
+      ownerName: user.displayName || user.email || 'Anonymous Baker',
       visibility: 'private',
       totalBakes: 0,
       forkedFrom: id,
