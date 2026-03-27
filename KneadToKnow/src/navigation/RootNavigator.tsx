@@ -17,6 +17,7 @@ import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
 import { ProofingScreen } from '../screens/ProofingScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
 import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
+import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 // ─── Tab Icons ───
@@ -74,6 +75,7 @@ type RootTabParamList = {
   RecipesTab: undefined;
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
+  BakeLogTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -197,6 +199,24 @@ function AuthenticatedApp() {
         }}
       />
       <Tab.Screen
+        name="BakeLogTab"
+        component={GlobalBakeLogScreen}
+        options={{
+          tabBarLabel: 'Log',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconLines, { borderColor: color }]}>
+                  <View style={[styles.tabIconLine, { backgroundColor: color }]} />
+                  <View style={[styles.tabIconLine, { backgroundColor: color }]} />
+                </View>
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
         name="SettingsTab"
         component={SettingsScreen}
         options={{
@@ -300,5 +320,14 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  tabIconLines: {
+    gap: 3,
+    alignItems: 'center',
+  },
+  tabIconLine: {
+    width: 10,
+    height: 1.5,
+    borderRadius: 1,
   },
 });
