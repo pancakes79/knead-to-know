@@ -17,6 +17,13 @@ service cloud.firestore {
     // Users can only read/write their own document
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId;
+
+      // Private subcollection (HA config, etc.) — owner only
+      // Cloud Functions use Admin SDK and bypass these rules,
+      // but this prevents any client-side access to secrets.
+      match /private/{docId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
 
     // ─── Recipes Collection ───
@@ -42,6 +49,12 @@ service cloud.firestore {
                     && request.resource.data.ownerId == request.auth.uid
                     && isValidBake();
       allow update, delete: if resource.data.ownerId == request.auth.uid;
+    }
+
+    // ─── Rate Limits (managed by Cloud Functions via Admin SDK) ───
+    // Clients should never read/write these directly
+    match /rateLimits/{docId} {
+      allow read, write: if false;
     }
 
     // ─── Deny everything else ───
