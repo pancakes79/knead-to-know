@@ -10,6 +10,7 @@ import {
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
+import { SourdoughBoule } from '../components/SourdoughBoule';
 import { RecipeStackParamList } from '../types';
 
 type RouteType = RouteProp<RecipeStackParamList, 'BakeComplete'>;
@@ -135,7 +136,9 @@ export function BakeCompleteScreen() {
 
       {/* Content */}
       <Animated.View style={[styles.content, { opacity: fadeIn }]}>
-        <Text style={styles.emoji}>🍞</Text>
+        <View style={styles.bouleWrap}>
+          <SourdoughBoule size={120} />
+        </View>
         <Text style={styles.title}>Bake Complete!</Text>
         <Text style={styles.subtitle}>
           Great job! Would you like to log how this bake turned out?
@@ -175,8 +178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xxxl,
   },
-  emoji: {
-    fontSize: 64,
+  bouleWrap: {
     marginBottom: spacing.xl,
   },
   title: {

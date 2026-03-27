@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   collection,
@@ -32,6 +32,7 @@ type RouteType = RouteProp<RecipeStackParamList, 'BakeLog'>;
 
 export function BakeLogScreen() {
   const route = useRoute<RouteType>();
+  const nav = useNavigation();
   const { getRecipe } = useRecipes();
   const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
@@ -152,7 +153,12 @@ export function BakeLogScreen() {
       setRating(0);
       setNotes('');
       setPhotoUri(null);
-      Alert.alert('Saved!', 'Your bake has been logged.');
+      Alert.alert('Saved!', 'Your bake has been logged.', [
+        {
+          text: 'OK',
+          onPress: () => nav.dispatch(CommonActions.navigate({ name: 'RecipesTab' })),
+        },
+      ]);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to save bake log.');
     } finally {
