@@ -59,7 +59,6 @@ export type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
-  ProfileTab: undefined;
 };
 
 export type RecipeStackParamList = {
@@ -68,5 +67,6 @@ export type RecipeStackParamList = {
   EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
+  BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
 };

@@ -7,10 +7,11 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
+import { useActiveBake } from '../hooks/useActiveBake';
 import { toggleRecipeSharing } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
@@ -23,6 +24,7 @@ export function RecipeDetailScreen() {
   const nav = useNavigation<NavType>();
   const { getRecipe, updateRecipe, deleteRecipe, saveToMyRecipes } = useRecipes();
   const { user } = useAuth();
+  const { startBake } = useActiveBake();
   const recipe = getRecipe(route.params.recipeId);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
   const [sharing, setSharing] = useState(false);
@@ -129,7 +131,10 @@ export function RecipeDetailScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => nav.navigate('ActiveBake', { recipeId: recipe.id })}
+          onPress={() => {
+            startBake(recipe.id, recipe.name);
+            nav.dispatch(CommonActions.navigate({ name: 'ActiveBakeTab' }));
+          }}
         >
           <Text style={styles.startButtonText}>Start Baking</Text>
         </TouchableOpacity>
