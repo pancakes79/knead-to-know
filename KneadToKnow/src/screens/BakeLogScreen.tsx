@@ -48,14 +48,20 @@ export function BakeLogScreen() {
         where('recipeId', '==', route.params.recipeId),
         orderBy('date', 'desc')
       );
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const logs = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date?.toDate() || new Date(),
-        })) as BakeLogEntry[];
-        setEntries(logs);
-      });
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const logs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            date: doc.data().date?.toDate() || new Date(),
+          })) as BakeLogEntry[];
+          setEntries(logs);
+        },
+        (error) => {
+          console.log('Firestore not available for bake logs:', error.message);
+        }
+      );
       return unsubscribe;
     } catch {
       // Firebase not configured — use local state
