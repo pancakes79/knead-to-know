@@ -23,6 +23,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useRecipes } from '../hooks/useRecipes';
+import { useAuth } from '../hooks/useAuth';
 import { StarRating } from '../components/StarRating';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList, BakeLogEntry } from '../types';
@@ -32,6 +33,7 @@ type RouteType = RouteProp<RecipeStackParamList, 'BakeLog'>;
 export function BakeLogScreen() {
   const route = useRoute<RouteType>();
   const { getRecipe } = useRecipes();
+  const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
 
   const [entries, setEntries] = useState<BakeLogEntry[]>([]);
@@ -40,12 +42,14 @@ export function BakeLogScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load existing bake log entries
+  // Load existing bake log entries scoped to current user
   useEffect(() => {
+    if (!user) return;
     try {
       const q = query(
-        collection(db, 'bakeLogs'),
+        collection(db, 'bakes'),
         where('recipeId', '==', route.params.recipeId),
+        where('ownerId', '==', user.uid),
         orderBy('date', 'desc')
       );
       const unsubscribe = onSnapshot(
@@ -64,9 +68,9 @@ export function BakeLogScreen() {
       );
       return unsubscribe;
     } catch {
-      // Firebase not configured — use local state
+      // Firebase not configured
     }
-  }, [route.params.recipeId]);
+  }, [route.params.recipeId, user?.uid]);
 
   const handlePickPhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -123,7 +127,7 @@ export function BakeLogScreen() {
         try {
           const response = await fetch(photoUri);
           const blob = await response.blob();
-          const filename = `bake-photos/${route.params.recipeId}/${Date.now()}.jpg`;
+          const filename = `bake-photos/${user?.uid}/${Date.now()}.jpg`;
           const storageRef = ref(storage, filename);
           await uploadBytes(storageRef, blob);
           photoUrl = await getDownloadURL(storageRef);
@@ -133,30 +137,16 @@ export function BakeLogScreen() {
       }
 
       // Save to Firestore
-      try {
-        await addDoc(collection(db, 'bakeLogs'), {
-          recipeId: route.params.recipeId,
-          date: serverTimestamp(),
-          rating,
-          notes: notes.trim(),
-          photoUrl,
-          ambientTempF: null,
-          proofingHours: null,
-        });
-      } catch {
-        // Firebase not configured — save locally
-        const localEntry: BakeLogEntry = {
-          id: `local-${Date.now()}`,
-          recipeId: route.params.recipeId,
-          date: new Date(),
-          rating,
-          notes: notes.trim(),
-          photoUrl: photoUri,
-          ambientTempF: null,
-          proofingHours: null,
-        };
-        setEntries((prev) => [localEntry, ...prev]);
-      }
+      await addDoc(collection(db, 'bakes'), {
+        recipeId: route.params.recipeId,
+        ownerId: user?.uid,
+        date: serverTimestamp(),
+        rating,
+        notes: notes.trim(),
+        photoUrl,
+        ambientTempF: null,
+        proofingHours: null,
+      });
 
       // Reset form
       setRating(0);

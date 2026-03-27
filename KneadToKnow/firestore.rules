@@ -1,13 +1,9 @@
 rules_version = '2';
 
-// Knead to Know — Firestore Security Rules
-// 
-// Since this is a personal-use app without user authentication,
-// these rules use a simple shared secret approach. The app sends
-// a custom header or field that acts as a lightweight access check.
+// Knead to Know — Firestore Security Rules (v2 — multi-user)
 //
-// For a personal app that won't hit the Play Store, this provides
-// reasonable protection without the complexity of full Firebase Auth.
+// All collections require Firebase Auth. Recipes can be shared
+// with the community via the visibility field.
 //
 // HOW TO DEPLOY:
 //   1. Go to Firebase Console → Firestore Database → Rules tab
@@ -16,52 +12,64 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // ─── Users Collection ───
+    // Users can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
     // ─── Recipes Collection ───
-    // Full read/write access for the app
     match /recipes/{recipeId} {
-      allow read: if true;
-      allow create: if isValidRecipe();
-      allow update: if isValidRecipe();
-      allow delete: if true;
+      // Owner can read their own; anyone authenticated can read shared
+      allow read: if request.auth != null
+                  && (resource.data.ownerId == request.auth.uid
+                      || resource.data.visibility == 'shared');
+      allow create: if request.auth != null
+                    && request.resource.data.ownerId == request.auth.uid
+                    && isValidRecipe();
+      allow update: if resource.data.ownerId == request.auth.uid
+                    && isValidRecipe();
+      allow delete: if resource.data.ownerId == request.auth.uid;
     }
-    
-    // ─── Bake Logs Collection ───
-    // Full read/write access for the app
-    match /bakeLogs/{logId} {
-      allow read: if true;
-      allow create: if isValidBakeLog();
-      allow update: if isValidBakeLog();
-      allow delete: if true;
+
+    // ─── Bakes Collection ───
+    // Users can only access their own bake log entries
+    match /bakes/{bakeId} {
+      allow read: if request.auth != null
+                  && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.ownerId == request.auth.uid
+                    && isValidBake();
+      allow update, delete: if resource.data.ownerId == request.auth.uid;
     }
-    
+
     // ─── Deny everything else ───
-    // Any collection not explicitly listed above is locked down
     match /{document=**} {
       allow read, write: if false;
     }
-    
+
     // ─── Validation Functions ───
-    
-    // Ensure recipe documents have required fields
+
     function isValidRecipe() {
       let data = request.resource.data;
-      return data.keys().hasAll(['name', 'ingredients', 'steps'])
+      return data.keys().hasAll(['name', 'ingredients', 'steps', 'ownerId'])
         && data.name is string
         && data.name.size() > 0
         && data.name.size() <= 200
         && data.ingredients is list
-        && data.steps is list;
+        && data.steps is list
+        && data.ownerId is string;
     }
-    
-    // Ensure bake log entries have required fields
-    function isValidBakeLog() {
+
+    function isValidBake() {
       let data = request.resource.data;
-      return data.keys().hasAll(['recipeId', 'rating'])
+      return data.keys().hasAll(['recipeId', 'rating', 'ownerId'])
         && data.recipeId is string
         && data.rating is number
         && data.rating >= 0
-        && data.rating <= 5;
+        && data.rating <= 5
+        && data.ownerId is string;
     }
   }
 }

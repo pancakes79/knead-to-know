@@ -17,7 +17,11 @@ export interface Recipe {
   id: string;
   name: string;
   source: string;
+  ownerId: string;
+  visibility: 'private' | 'shared';
   createdAt: Date;
+  updatedAt?: Date;
+  totalBakes: number;
   ingredients: Ingredient[];
   steps: RecipeStep[];
 }
@@ -27,8 +31,9 @@ export interface Recipe {
 export interface BakeLogEntry {
   id: string;
   recipeId: string;
+  ownerId: string;
   date: Date;
-  rating: number; // 1-5
+  rating: number; // 0-5
   notes: string;
   photoUrl: string | null;
   ambientTempF: number | null;
@@ -53,6 +58,7 @@ export type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
+  ProfileTab: undefined;
 };
 
 export type RecipeStackParamList = {
