@@ -21,12 +21,13 @@ type NavType = NativeStackNavigationProp<RecipeStackParamList, 'RecipeDetail'>;
 export function RecipeDetailScreen() {
   const route = useRoute<RouteType>();
   const nav = useNavigation<NavType>();
-  const { getRecipe, updateRecipe, saveToMyRecipes } = useRecipes();
+  const { getRecipe, updateRecipe, deleteRecipe, saveToMyRecipes } = useRecipes();
   const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
   const [sharing, setSharing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isOwner = recipe && user && recipe.ownerId === user.uid;
 
@@ -72,6 +73,31 @@ export function RecipeDetailScreen() {
       setSaving(false);
     }
   }, [recipe, saveToMyRecipes, nav]);
+
+  const handleDelete = useCallback(() => {
+    if (!recipe) return;
+    Alert.alert(
+      'Delete Recipe',
+      `Are you sure you want to delete "${recipe.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteRecipe(recipe.id);
+              nav.goBack();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete recipe.');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [recipe, deleteRecipe, nav]);
 
   if (!recipe) {
     return (
@@ -135,6 +161,15 @@ export function RecipeDetailScreen() {
                 : recipe.visibility === 'shared'
                   ? 'Make Private'
                   : 'Share with Community'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+            onPress={handleDelete}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteButtonText}>
+              {deleting ? 'Deleting...' : 'Delete Recipe'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -317,6 +352,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     color: colors.amber,
+  },
+  deleteButton: {
+    backgroundColor: '#FCEBEB',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F7C1C1',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: '#A32D2D',
   },
   saveButton: {
     marginHorizontal: spacing.xl,
