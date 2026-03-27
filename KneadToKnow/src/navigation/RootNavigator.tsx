@@ -1,11 +1,14 @@
 import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View } from 'react-native';
+import { useAuth } from '../hooks/useAuth';
 import { colors, fonts } from '../constants/theme';
-import { RootTabParamList, RecipeStackParamList } from '../types';
 
-// Screens
+// Auth screens
+import { SignInScreen } from '../screens/SignInScreen';
+
+// App screens
 import { RecipeListScreen } from '../screens/RecipeListScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
@@ -13,131 +16,66 @@ import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
 import { ProofingScreen } from '../screens/ProofingScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 
-// ─── Tab Icons (simple SVG-like components) ───
+// ─── Tab Icons ───
 
-function BreadIcon({ color, size }: { color: string; size: number }) {
+function TabIcon({ label, color, size }: { label: string; color: string; size: number }) {
+  const icons: Record<string, string> = {
+    Recipes: '📖',
+    Proofing: '🌡',
+    Bake: '🍞',
+    Settings: '⚙',
+    Profile: '👤',
+  };
   return (
-    <View style={{
-      width: size,
-      height: size,
-      borderRadius: size / 2,
-      backgroundColor: color === colors.amber ? colors.cream : 'transparent',
-      borderWidth: 1.5,
-      borderColor: color,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
       <View style={{
-        width: size * 0.4,
-        height: size * 0.25,
-        borderRadius: size * 0.15,
-        backgroundColor: color,
-      }} />
+        fontSize: size * 0.7,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <View style={{
+          width: size - 2,
+          height: size - 2,
+          borderRadius: (size - 2) / 2,
+          borderWidth: 1.5,
+          borderColor: color,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: color === colors.amber ? `${colors.cream}` : 'transparent',
+        }}>
+          <View style={{
+            width: size * 0.4,
+            height: size * 0.25,
+            borderRadius: size * 0.12,
+            backgroundColor: color,
+          }} />
+        </View>
+      </View>
     </View>
   );
 }
 
-function TimerIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <View style={{
-      width: size,
-      height: size,
-      borderRadius: size / 2,
-      borderWidth: 1.5,
-      borderColor: color,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
-      <View style={{
-        width: 1.5,
-        height: size * 0.25,
-        backgroundColor: color,
-        position: 'absolute',
-        top: size * 0.2,
-      }} />
-      <View style={{
-        width: size * 0.2,
-        height: 1.5,
-        backgroundColor: color,
-        position: 'absolute',
-        right: size * 0.2,
-      }} />
-    </View>
-  );
-}
+// ─── Navigation Types ───
 
-function BakeIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <View style={{
-      width: size,
-      height: size,
-      borderRadius: 4,
-      borderWidth: 1.5,
-      borderColor: color,
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      paddingBottom: 3,
-    }}>
-      <View style={{
-        width: size * 0.5,
-        height: size * 0.3,
-        borderTopLeftRadius: size * 0.25,
-        borderTopRightRadius: size * 0.25,
-        backgroundColor: color,
-      }} />
-    </View>
-  );
-}
+type RecipeStackParamList = {
+  RecipeList: undefined;
+  RecipeDetail: { recipeId: string };
+  ImportRecipe: undefined;
+  ActiveBake: { recipeId: string };
+  BakeLog: { recipeId: string };
+};
 
-function GearIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <View style={{
-      width: size,
-      height: size,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
-      <View style={{
-        width: size * 0.55,
-        height: size * 0.55,
-        borderRadius: size * 0.275,
-        borderWidth: 1.5,
-        borderColor: color,
-      }} />
-      <View style={{
-        position: 'absolute',
-        width: size * 0.15,
-        height: size * 0.25,
-        backgroundColor: color,
-        top: size * 0.05,
-      }} />
-      <View style={{
-        position: 'absolute',
-        width: size * 0.15,
-        height: size * 0.25,
-        backgroundColor: color,
-        bottom: size * 0.05,
-      }} />
-      <View style={{
-        position: 'absolute',
-        width: size * 0.25,
-        height: size * 0.15,
-        backgroundColor: color,
-        left: size * 0.05,
-      }} />
-      <View style={{
-        position: 'absolute',
-        width: size * 0.25,
-        height: size * 0.15,
-        backgroundColor: color,
-        right: size * 0.05,
-      }} />
-    </View>
-  );
-}
+type RootTabParamList = {
+  RecipesTab: undefined;
+  ProofingTab: undefined;
+  ActiveBakeTab: undefined;
+  SettingsTab: undefined;
+  ProfileTab: undefined;
+};
 
-// ─── Recipe Stack Navigator ───
+// ─── Recipe Stack ───
 
 const RecipeStack = createNativeStackNavigator<RecipeStackParamList>();
 
@@ -151,40 +89,23 @@ function RecipeStackNavigator() {
         headerShadowVisible: false,
       }}
     >
-      <RecipeStack.Screen
-        name="RecipeList"
-        component={RecipeListScreen}
-        options={{ headerShown: false }}
-      />
-      <RecipeStack.Screen
-        name="RecipeDetail"
-        component={RecipeDetailScreen}
-        options={{ title: 'Recipe' }}
-      />
-      <RecipeStack.Screen
-        name="ImportRecipe"
-        component={ImportRecipeScreen}
-        options={{ title: 'Import Recipe', presentation: 'modal' }}
-      />
-      <RecipeStack.Screen
-        name="ActiveBake"
-        component={ActiveBakeScreen}
-        options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }}
-      />
-      <RecipeStack.Screen
-        name="BakeLog"
-        component={BakeLogScreen}
-        options={{ title: 'Bake Log' }}
-      />
+      <RecipeStack.Screen name="RecipeList" component={RecipeListScreen} options={{ headerShown: false }} />
+      <RecipeStack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ title: 'Recipe' }} />
+      <RecipeStack.Screen name="ImportRecipe" component={ImportRecipeScreen} options={{ title: 'Import Recipe', presentation: 'modal' }} />
+      <RecipeStack.Screen name="ActiveBake" component={ActiveBakeScreen} options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }} />
+      <RecipeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
     </RecipeStack.Navigator>
   );
 }
 
-// ─── Root Tab Navigator ───
+// ─── Authenticated Tab Navigator ───
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-export function RootNavigator() {
+function AuthenticatedApp() {
+  const { user } = useAuth();
+  const initial = (user?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -210,7 +131,13 @@ export function RootNavigator() {
         component={RecipeStackNavigator}
         options={{
           tabBarLabel: 'Recipes',
-          tabBarIcon: ({ color, size }) => <BreadIcon color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconInner, { borderColor: color }]}>
+                <View style={[styles.tabIconDot, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
         }}
       />
       <Tab.Screen
@@ -218,15 +145,27 @@ export function RootNavigator() {
         component={ProofingScreen}
         options={{
           tabBarLabel: 'Proofing',
-          tabBarIcon: ({ color, size }) => <TimerIcon color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconHand, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="ActiveBakeTab"
         component={ActiveBakeScreen}
         options={{
-          tabBarLabel: 'Active Bake',
-          tabBarIcon: ({ color, size }) => <BakeIcon color={color} size={size} />,
+          tabBarLabel: 'Bake',
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconSquare, { borderColor: color }]}>
+                <View style={[styles.tabIconLoaf, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
         }}
       />
       <Tab.Screen
@@ -234,9 +173,141 @@ export function RootNavigator() {
         component={SettingsScreen}
         options={{
           tabBarLabel: 'Settings',
-          tabBarIcon: ({ color, size }) => <GearIcon color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconGear, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: initial,
+          tabBarIcon: ({ color }) => (
+            <View style={[styles.profileIcon, {
+              borderColor: color,
+              backgroundColor: color === colors.amber ? colors.cream : 'transparent',
+            }]}>
+              <View style={{
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: color,
+                marginBottom: 1,
+              }} />
+              <View style={{
+                width: 16,
+                height: 8,
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+                backgroundColor: color,
+              }} />
+            </View>
+          ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+// ─── Root Navigator — auth gate ───
+
+const AuthStack = createNativeStackNavigator();
+
+export function RootNavigator() {
+  const { user, loading } = useAuth();
+
+  // Show loading spinner while checking auth state
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.amber} />
+      </View>
+    );
+  }
+
+  // Not authenticated — show sign-in
+  if (!user) {
+    return (
+      <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+        <AuthStack.Screen name="SignIn" component={SignInScreen} />
+      </AuthStack.Navigator>
+    );
+  }
+
+  // Authenticated — show the app
+  return <AuthenticatedApp />;
+}
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.bgPrimary,
+  },
+  tabIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabIconInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabIconDot: {
+    width: 8,
+    height: 5,
+    borderRadius: 3,
+  },
+  tabIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabIconHand: {
+    width: 1.5,
+    height: 6,
+  },
+  tabIconSquare: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 3,
+  },
+  tabIconLoaf: {
+    width: 10,
+    height: 6,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
+  },
+  tabIconGear: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  profileIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+});

@@ -10,7 +10,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProofingEstimate, cToF, fToC, PROOFING_CHART } from '../constants/proofingData';
-import { getAmbientTemperature, isConfigured } from '../services/homeAssistantApi';
+import { getHATemperature } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type TempUnit = 'F' | 'C';
@@ -39,19 +39,10 @@ export function ProofingScreen() {
   const handleHAPull = useCallback(async () => {
     setLoadingHA(true);
     try {
-      const configured = await isConfigured();
-      if (!configured) {
-        Alert.alert(
-          'Home Assistant Not Connected',
-          'Go to Settings to connect your Home Assistant instance.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      const temp = await getAmbientTemperature();
-      setTempF(Math.round(temp));
+      const result = await getHATemperature();
+      setTempF(Math.round(result.tempF));
       setUnit('F');
-      Alert.alert('Temperature Updated', `Current ambient: ${Math.round(temp)}°F`);
+      Alert.alert('Temperature Updated', `${result.sensorName}: ${Math.round(result.tempF)}°F`);
     } catch (error: any) {
       Alert.alert('Home Assistant Error', error.message);
     } finally {

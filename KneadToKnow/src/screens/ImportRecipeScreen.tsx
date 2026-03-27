@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRecipes } from '../hooks/useRecipes';
-import { parseRecipeFromUrl, parseRecipeFromText } from '../services/recipeParser';
+import { importRecipeFromUrl, importRecipeFromText } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type ImportTab = 'url' | 'file' | 'manual';
@@ -33,9 +33,8 @@ export function ImportRecipeScreen() {
     if (!url.trim()) return;
     setImporting(true);
     try {
-      const parsed = await parseRecipeFromUrl(url.trim());
-      await addRecipe(parsed);
-      Alert.alert('Success!', `"${parsed.name}" has been added to your recipe bank.`);
+      const result = await importRecipeFromUrl(url);
+      Alert.alert('Success!', `"${result.name}" has been added to your recipe bank.`);
       nav.goBack();
     } catch (error: any) {
       Alert.alert('Import Failed', error.message || 'Could not parse the recipe. Try a different URL.');
@@ -55,13 +54,11 @@ export function ImportRecipeScreen() {
       setImporting(true);
       const file = result.assets[0];
 
-      // Read the file content
       const response = await fetch(file.uri);
       const text = await response.text();
 
-      const parsed = await parseRecipeFromText(text, file.name || 'Uploaded file');
-      await addRecipe(parsed);
-      Alert.alert('Success!', `"${parsed.name}" has been added to your recipe bank.`);
+      const imported = await importRecipeFromText(text, file.name || 'Uploaded file');
+      Alert.alert('Success!', `"${imported.name}" has been added to your recipe bank.`);
       nav.goBack();
     } catch (error: any) {
       Alert.alert('Import Failed', error.message || 'Could not parse the file.');

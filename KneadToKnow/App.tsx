@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { AuthProvider } from './src/hooks/useAuth';
 import { RecipeProvider } from './src/hooks/useRecipes';
 
 SplashScreen.preventAutoHideAsync();
@@ -34,11 +35,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#faf5ec" />
-      <RecipeProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </RecipeProvider>
+      <AuthProvider>
+        <RecipeProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </RecipeProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

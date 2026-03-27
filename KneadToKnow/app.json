@@ -2,6 +2,7 @@
   "expo": {
     "name": "Knead to Know",
     "slug": "knead-to-know",
+    "scheme": "com.loafsloaves.kneadtoknow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -35,28 +36,20 @@
       ]
     },
     "plugins": [
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash-icon.png",
-          "backgroundColor": "#faf5ec",
-          "imageWidth": 280
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "sounds": []
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Knead to Know needs photo access to save bake photos.",
-          "cameraPermission": "Knead to Know needs camera access to photograph your bakes."
-        }
-      ]
-    ],
+  [
+    "expo-splash-screen",
+    { "image": "./assets/splash-icon.png", "backgroundColor": "#faf5ec", "imageWidth": 280 }
+  ],
+  ["react-native-ble-plx", { "isBackgroundEnabled": false }],
+  ["expo-notifications", { "sounds": [] }],
+  [
+    "expo-image-picker",
+    {
+      "photosPermission": "Knead to Know needs photo access to save bake photos.",
+      "cameraPermission": "Knead to Know needs camera access to photograph your bakes."
+    }
+  ]
+],
     "extra": {
       "eas": {
         "projectId": "5d7f8cd4-bb43-46dc-a47a-ff2049454f47"
