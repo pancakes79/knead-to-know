@@ -12,6 +12,7 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { RecipeListScreen } from '../screens/RecipeListScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
+import { EditRecipeScreen } from '../screens/EditRecipeScreen';
 import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
 import { ProofingScreen } from '../screens/ProofingScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
@@ -62,6 +63,7 @@ function TabIcon({ label, color, size }: { label: string; color: string; size: n
 type RecipeStackParamList = {
   RecipeList: undefined;
   RecipeDetail: { recipeId: string };
+  EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
   BakeLog: { recipeId: string };
@@ -91,6 +93,7 @@ function RecipeStackNavigator() {
     >
       <RecipeStack.Screen name="RecipeList" component={RecipeListScreen} options={{ headerShown: false }} />
       <RecipeStack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ title: 'Recipe' }} />
+      <RecipeStack.Screen name="EditRecipe" component={EditRecipeScreen} options={{ title: 'Edit Recipe' }} />
       <RecipeStack.Screen name="ImportRecipe" component={ImportRecipeScreen} options={{ title: 'Import Recipe', presentation: 'modal' }} />
       <RecipeStack.Screen name="ActiveBake" component={ActiveBakeScreen} options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }} />
       <RecipeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />

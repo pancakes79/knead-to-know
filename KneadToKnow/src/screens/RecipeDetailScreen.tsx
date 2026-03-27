@@ -47,7 +47,7 @@ export function RecipeDetailScreen() {
           onPress: async () => {
             setSharing(true);
             try {
-              await toggleRecipeSharing(recipe.id, newVisibility === 'shared');
+              await toggleRecipeSharing(recipe.id);
             } catch (error: any) {
               Alert.alert('Error', error.message || `Failed to ${action} recipe.`);
             } finally {
@@ -115,21 +115,29 @@ export function RecipeDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Share / Save to My Recipes */}
+      {/* Edit / Share / Save to My Recipes */}
       {isOwner && (
-        <TouchableOpacity
-          style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
-          onPress={handleToggleShare}
-          disabled={sharing}
-        >
-          <Text style={styles.shareButtonText}>
-            {sharing
-              ? 'Updating...'
-              : recipe.visibility === 'shared'
-                ? 'Make Private'
-                : 'Share with Community'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.ownerActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => nav.navigate('EditRecipe', { recipeId: recipe.id })}
+          >
+            <Text style={styles.editButtonText}>Edit Recipe</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
+            onPress={handleToggleShare}
+            disabled={sharing}
+          >
+            <Text style={styles.shareButtonText}>
+              {sharing
+                ? 'Updating...'
+                : recipe.visibility === 'shared'
+                  ? 'Make Private'
+                  : 'Share with Community'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
       {!isOwner && (
         <TouchableOpacity
@@ -276,9 +284,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textSecondary,
   },
-  shareButton: {
-    marginHorizontal: spacing.xl,
+  ownerActions: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  editButton: {
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  editButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  shareButton: {
     backgroundColor: colors.bgCard,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,

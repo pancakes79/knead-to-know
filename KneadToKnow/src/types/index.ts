@@ -65,6 +65,7 @@ export type RootTabParamList = {
 export type RecipeStackParamList = {
   RecipeList: undefined;
   RecipeDetail: { recipeId: string };
+  EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
   BakeLog: { recipeId: string };
