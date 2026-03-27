@@ -1,0 +1,23 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# Node
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# IDE
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
