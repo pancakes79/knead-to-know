@@ -17,7 +17,6 @@ import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
 import { ProofingScreen } from '../screens/ProofingScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
 
 // ─── Tab Icons ───
 
@@ -74,7 +73,6 @@ type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
-  ProfileTab: undefined;
 };
 
 // ─── Recipe Stack ───
@@ -106,9 +104,6 @@ function RecipeStackNavigator() {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 function AuthenticatedApp() {
-  const { user } = useAuth();
-  const initial = (user?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -181,34 +176,6 @@ function AuthenticatedApp() {
               <View style={[styles.tabIconCircle, { borderColor: color }]}>
                 <View style={[styles.tabIconGear, { backgroundColor: color }]} />
               </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: initial,
-          tabBarIcon: ({ color }) => (
-            <View style={[styles.profileIcon, {
-              borderColor: color,
-              backgroundColor: color === colors.amber ? colors.cream : 'transparent',
-            }]}>
-              <View style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: color,
-                marginBottom: 1,
-              }} />
-              <View style={{
-                width: 16,
-                height: 8,
-                borderTopLeftRadius: 8,
-                borderTopRightRadius: 8,
-                backgroundColor: color,
-              }} />
             </View>
           ),
         }}
@@ -303,14 +270,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  profileIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
   },
 });
