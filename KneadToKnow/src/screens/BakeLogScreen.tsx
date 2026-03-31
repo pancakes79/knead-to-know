@@ -9,18 +9,18 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRoute, useNavigation, RouteProp, CommonActions } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions, NavigationProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   collection,
   addDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
 import { db, storage } from '../config/firebase';
 import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
@@ -32,7 +32,7 @@ type RouteType = RouteProp<RecipeStackParamList, 'BakeLog'>;
 
 export function BakeLogScreen() {
   const route = useRoute<RouteType>();
-  const nav = useNavigation();
+  const nav = useNavigation<NavigationProp<RecipeStackParamList>>();
   const { getRecipe } = useRecipes();
   const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
@@ -50,8 +50,7 @@ export function BakeLogScreen() {
       const q = query(
         collection(db, 'bakes'),
         where('recipeId', '==', route.params.recipeId),
-        where('ownerId', '==', user.uid),
-        orderBy('date', 'desc')
+        where('ownerId', '==', user.uid)
       );
       const unsubscribe = onSnapshot(
         q,
@@ -61,6 +60,7 @@ export function BakeLogScreen() {
             ...doc.data(),
             date: doc.data().date?.toDate() || new Date(),
           })) as BakeLogEntry[];
+          logs.sort((a, b) => b.date.getTime() - a.date.getTime());
           setEntries(logs);
         },
         (error) => {
@@ -85,7 +85,7 @@ export function BakeLogScreen() {
         text: 'Camera',
         onPress: async () => {
           const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             quality: 0.7,
             allowsEditing: true,
             aspect: [4, 3],
@@ -99,7 +99,7 @@ export function BakeLogScreen() {
         text: 'Gallery',
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             quality: 0.7,
             allowsEditing: true,
             aspect: [4, 3],
@@ -123,23 +123,49 @@ export function BakeLogScreen() {
     try {
       let photoUrl: string | null = null;
 
-      // Upload photo to Firebase Storage if present
+      // Upload photo to Firebase Storage via REST API
       if (photoUri) {
         try {
-          const response = await fetch(photoUri);
-          const blob = await response.blob();
-          const filename = `bake-photos/${user?.uid}/${Date.now()}.jpg`;
-          const storageRef = ref(storage, filename);
-          await uploadBytes(storageRef, blob);
+          const token = await getAuth().currentUser?.getIdToken();
+          const bucket = storage.app.options.storageBucket;
+          const filePath = `bake-photos/${user?.uid}/${Date.now()}.jpg`;
+          const encodedPath = encodeURIComponent(filePath);
+
+          const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+          console.log('Upload URL:', uploadUrl);
+
+          // React Native's XHR can upload file URIs natively
+          const uploadResult: string = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.responseText);
+              } else {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Upload network error'));
+            xhr.open('POST', uploadUrl);
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.setRequestHeader('Content-Type', 'image/jpeg');
+
+            // RN's XHR handles file URIs natively when sent via send()
+            xhr.send({ uri: photoUri } as any);
+          });
+
+          const storageRef = ref(storage, filePath);
           photoUrl = await getDownloadURL(storageRef);
-        } catch {
-          console.log('Photo upload failed — saving without photo');
+          console.log('Photo uploaded, URL:', photoUrl);
+        } catch (uploadErr) {
+          console.log('Photo upload failed:', uploadErr);
+          Alert.alert('Photo Upload Failed', 'Your bake will be saved without the photo.');
         }
       }
 
       // Save to Firestore
       await addDoc(collection(db, 'bakes'), {
         recipeId: route.params.recipeId,
+        recipeName: recipe?.name || 'Unknown Recipe',
         ownerId: user?.uid,
         date: serverTimestamp(),
         rating,
@@ -156,7 +182,9 @@ export function BakeLogScreen() {
       Alert.alert('Saved!', 'Your bake has been logged.', [
         {
           text: 'OK',
-          onPress: () => nav.dispatch(CommonActions.navigate({ name: 'RecipesTab' })),
+          onPress: () => {
+            nav.dispatch(CommonActions.navigate({ name: 'RecipesTab' }));
+          },
         },
       ]);
     } catch (error: any) {
@@ -229,7 +257,22 @@ export function BakeLogScreen() {
         <View style={styles.historySection}>
           <Text style={styles.historyTitle}>Past Bakes</Text>
           {entries.map((entry) => (
-            <View key={entry.id} style={styles.entryCard}>
+            <TouchableOpacity
+              key={entry.id}
+              style={styles.entryCard}
+              activeOpacity={0.7}
+              onPress={() =>
+                nav.navigate('BakeLogDetail', {
+                  entryId: entry.id,
+                  recipeId: entry.recipeId,
+                  recipeName: recipe?.name || entry.recipeName || 'Unknown Recipe',
+                  date: entry.date instanceof Date ? entry.date.toISOString() : new Date().toISOString(),
+                  rating: entry.rating,
+                  notes: entry.notes,
+                  photoUrl: entry.photoUrl,
+                })
+              }
+            >
               <View style={styles.entryHeader}>
                 <Text style={styles.entryDate}>
                   {entry.date instanceof Date
@@ -243,12 +286,12 @@ export function BakeLogScreen() {
                 <StarRating rating={entry.rating} readonly size={18} />
               </View>
               {entry.notes ? (
-                <Text style={styles.entryNotes}>{entry.notes}</Text>
+                <Text style={styles.entryNotes} numberOfLines={2}>{entry.notes}</Text>
               ) : null}
               {entry.photoUrl ? (
                 <Image source={{ uri: entry.photoUrl }} style={styles.entryPhoto} />
               ) : null}
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}

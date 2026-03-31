@@ -13,11 +13,21 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
 import { useActiveBake } from '../hooks/useActiveBake';
 import { toggleRecipeSharing } from '../services/cloudApi';
+import { parseDuration } from '../utils/parseDuration';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
 
 type RouteType = RouteProp<RecipeStackParamList, 'RecipeDetail'>;
 type NavType = NativeStackNavigationProp<RecipeStackParamList, 'RecipeDetail'>;
+
+function formatTimerLabel(seconds: number): string {
+  if (seconds >= 3600) {
+    const hrs = seconds / 3600;
+    return hrs === 1 ? '1 hour' : `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)} hours`;
+  }
+  const mins = Math.round(seconds / 60);
+  return mins === 1 ? '1 minute' : `${mins} minutes`;
+}
 
 export function RecipeDetailScreen() {
   const route = useRoute<RouteType>();
@@ -26,7 +36,7 @@ export function RecipeDetailScreen() {
   const { user } = useAuth();
   const { startBake } = useActiveBake();
   const recipe = getRecipe(route.params.recipeId);
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'equipment'>('ingredients');
   const [sharing, setSharing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -109,8 +119,11 @@ export function RecipeDetailScreen() {
     );
   }
 
+  const equipmentList = recipe.equipment || [];
+
   const tabs = [
     { key: 'ingredients' as const, label: 'Ingredients' },
+    { key: 'equipment' as const, label: 'Equipment' },
     { key: 'steps' as const, label: 'Steps' },
   ];
 
@@ -124,6 +137,12 @@ export function RecipeDetailScreen() {
           <Text style={styles.metaText}>{recipe.ingredients.length} ingredients</Text>
           <Text style={styles.metaDot}>·</Text>
           <Text style={styles.metaText}>{recipe.steps.length} steps</Text>
+          {equipmentList.length > 0 && (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.metaText}>{equipmentList.length} equipment</Text>
+            </>
+          )}
         </View>
       </View>
 
@@ -240,9 +259,34 @@ export function RecipeDetailScreen() {
                   {step.type === 'proof' && (
                     <Text style={styles.stepTag}>🌡 Use the proofing calculator for timing</Text>
                   )}
+                  {step.type !== 'stretch_folds' && (step.timerSeconds || parseDuration(step.text)) && (
+                    <Text style={styles.stepTag}>⏱ Timer: {formatTimerLabel(step.timerSeconds || parseDuration(step.text)!)}</Text>
+                  )}
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {activeTab === 'equipment' && (
+          <View style={styles.listSection}>
+            {equipmentList.length > 0 ? (
+              <>
+                <Text style={styles.listHint}>
+                  Equipment needed for this bake:
+                </Text>
+                {equipmentList.map((item) => (
+                  <View key={item.id} style={styles.listItem}>
+                    <View style={styles.bullet} />
+                    <Text style={styles.listItemText}>{item.text}</Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <Text style={styles.listHint}>
+                No equipment listed for this recipe. You can add equipment by editing the recipe.
+              </Text>
+            )}
           </View>
         )}
 

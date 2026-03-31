@@ -15,6 +15,7 @@
 import { setGlobalOptions } from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
+import { logger } from "firebase-functions";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
@@ -47,33 +48,53 @@ function getAnthropicClient(): Anthropic {
   return new Anthropic({ apiKey: key });
 }
 
-const RECIPE_PARSE_PROMPT = `You are a recipe parser for a sourdough bread baking app. Extract the COMPLETE recipe into structured JSON.
+const RECIPE_PARSE_PROMPT = `You are a recipe parser for a sourdough bread baking app. Your job is to FAITHFULLY EXTRACT the recipe — not summarize, not paraphrase, not abbreviate. Preserve every detail from the original.
 
 Return ONLY valid JSON (no markdown fences) with this exact shape:
 {
   "name": "Recipe Name",
   "ingredients": [
     { "id": "i1", "text": "500g bread flour", "sortOrder": 0 },
-    { "id": "i2", "text": "350g water (70%)", "sortOrder": 1 }
+    { "id": "i2", "text": "350g water at 90°F (70%)", "sortOrder": 1 },
+    { "id": "i3", "text": "10g fine sea salt", "sortOrder": 2 },
+    { "id": "i4", "text": "100g active sourdough starter (100% hydration)", "sortOrder": 3 }
+  ],
+  "equipment": [
+    { "id": "e1", "text": "Dutch oven with lid (5-7 qt)", "sortOrder": 0 },
+    { "id": "e2", "text": "Digital kitchen scale", "sortOrder": 1 }
   ],
   "steps": [
-    { "id": "s1", "text": "Mix flour and water...", "type": "step", "sortOrder": 0 },
-    { "id": "s2", "text": "Stretch and fold every 30 min, 4 sets", "type": "stretch_folds", "sortOrder": 1 },
-    { "id": "s3", "text": "Bulk ferment until doubled, 4-6 hours", "type": "proof", "sortOrder": 2 },
-    { "id": "s4", "text": "Preheat Dutch oven at 450°F for 45 min", "type": "step", "sortOrder": 3 },
-    { "id": "s5", "text": "Bake covered 20 min, uncovered 20-25 min until deep golden", "type": "step", "sortOrder": 4 }
+    { "id": "s1", "text": "Mix 500g flour and 350g water at 90°F. Rest 30 minutes (autolyse)", "type": "step", "timerSeconds": 1800, "sortOrder": 0 },
+    { "id": "s2", "text": "Add 10g salt and 100g starter, pinch and fold to incorporate", "type": "step", "sortOrder": 1 },
+    { "id": "s3", "text": "Stretch and fold every 30 minutes, 4 sets", "type": "stretch_folds", "sortOrder": 2 },
+    { "id": "s4", "text": "Bulk ferment at 78°F until 50% rise, about 4-5 hours total from mixing", "type": "proof", "sortOrder": 3 },
+    { "id": "s5", "text": "Shape into round boule and place seam-side up in floured banneton", "type": "step", "sortOrder": 4 },
+    { "id": "s6", "text": "Cold proof in refrigerator 12-16 hours", "type": "proof", "timerSeconds": 43200, "sortOrder": 5 },
+    { "id": "s7", "text": "Preheat oven to 500°F with Dutch oven inside for 45-60 minutes", "type": "step", "timerSeconds": 2700, "sortOrder": 6 },
+    { "id": "s8", "text": "Score dough, place in Dutch oven, bake covered at 500°F for 20 minutes", "type": "step", "timerSeconds": 1200, "sortOrder": 7 },
+    { "id": "s9", "text": "Remove lid, reduce to 450°F, bake 20-25 minutes until deep golden brown", "type": "step", "timerSeconds": 1200, "sortOrder": 8 },
+    { "id": "s10", "text": "Cool on wire rack at least 1 hour before slicing", "type": "step", "timerSeconds": 3600, "sortOrder": 9 }
   ]
 }
 
-CRITICAL RULES:
-1. INGREDIENTS MUST INCLUDE EXACT QUANTITIES — always include weights, volumes, or measurements (e.g. "500g bread flour" NOT just "bread flour"). If the recipe lists amounts, you MUST preserve them. If baker's percentages are given, include those too.
-2. EVERY STEP must be included — do NOT stop at fermentation. You MUST include shaping, scoring, preheating, baking temperatures, baking times, cooling, and any other steps from the original recipe. A bread recipe is not complete without baking instructions.
-3. Include ALL steps from start to finish — prep, mixing, folding, fermenting, shaping, proofing, baking, and cooling.
+CRITICAL RULES — read every one:
+
+1. INGREDIENTS — Every ingredient MUST include its exact quantity and unit from the recipe (e.g. "500g bread flour", "2 tsp salt", "350g water at 90°F"). NEVER output just "Bread flour" or "Water" or "Salt" without the amount. If the recipe specifies a quantity, you must include it.
+
+2. STEPS — You MUST include EVERY step from start to finish. That means mixing, autolyse, adding starter/salt, folding, bulk fermentation, shaping, proofing, PREHEATING THE OVEN, BAKING, and cooling. A recipe without baking instructions is incomplete. Count your steps at the end — if there is no step mentioning an oven temperature and bake time, you have missed something.
+
+3. NUMBERS — Every number from the original recipe must appear in your output: temperatures (°F or °C), times (minutes, hours), weights (g, oz, kg), percentages, counts. NEVER replace a number with a vague description. "Preheat to 450°F" not "Preheat to high heat". "Bulk ferment 4-6 hours" not "Bulk ferment until doubled".
+
+4. EQUIPMENT — Extract equipment mentioned or implied by the recipe. Include specifics like size where given (e.g. "5-7 qt Dutch oven"). If the recipe uses weight measurements, include "Digital kitchen scale". Infer essential items from the steps (e.g. if it says "place in banneton", include banneton).
+
+5. DO NOT SUMMARIZE OR COMBINE STEPS — If the recipe describes preheating and baking as separate actions, keep them as separate steps. If the recipe has 12 steps, your output should have approximately 12 steps.
+
+6. TIMERS — If a step mentions a specific time duration (e.g. "30 minutes", "20 min", "1 hour", "12-16 hours"), add a "timerSeconds" field with the duration in seconds. For ranges like "20-25 minutes", use the lower number (1200). For ranges like "12-16 hours", use the lower number (43200). Omit timerSeconds for steps with no clear duration. Do NOT add timerSeconds to stretch_folds steps (they have their own built-in timers).
 
 Rules for the "type" field:
-- "stretch_folds" if the step involves stretch and folds, coil folds, or lamination
-- "proof" if the step is bulk fermentation, proofing, cold retard, or rising
-- "step" for everything else (including mixing, shaping, scoring, baking, cooling)
+- "stretch_folds" — stretch and folds, coil folds, or lamination
+- "proof" — bulk fermentation, proofing, cold retard, or any rising/resting period
+- "step" — everything else (mixing, shaping, scoring, preheating, baking, cooling)
 
 If the recipe name isn't obvious, generate a descriptive one.`;
 
@@ -84,13 +105,21 @@ async function parseRecipeWithClaude(
 ): Promise<{ recipeId: string; name: string; ingredientCount: number; stepCount: number }> {
   const anthropic = getAnthropicClient();
 
+  const truncatedContent = content.slice(0, 30000);
+  logger.info("=== RECIPE PARSE INPUT ===", {
+    source,
+    contentLength: content.length,
+    truncatedLength: truncatedContent.length,
+    contentPreview: truncatedContent.slice(0, 2000),
+  });
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [
       {
         role: "user",
-        content: `Parse this recipe:\n\n${content.slice(0, 8000)}`,
+        content: `Parse this recipe:\n\n${truncatedContent}`,
       },
     ],
     system: RECIPE_PARSE_PROMPT,
@@ -101,10 +130,17 @@ async function parseRecipeWithClaude(
     throw new HttpsError("internal", "Claude returned no text response.");
   }
 
+  logger.info("=== CLAUDE RAW RESPONSE ===", {
+    stopReason: message.stop_reason,
+    responseLength: textBlock.text.length,
+    responseText: textBlock.text.slice(0, 3000),
+  });
+
   let parsed: {
     name: string;
     ingredients: { id: string; text: string; sortOrder: number }[];
-    steps: { id: string; text: string; type: string; sortOrder: number }[];
+    equipment?: { id: string; text: string; sortOrder: number }[];
+    steps: { id: string; text: string; type: string; sortOrder: number; timerSeconds?: number }[];
   };
 
   try {
@@ -138,6 +174,7 @@ async function parseRecipeWithClaude(
     updatedAt: FieldValue.serverTimestamp(),
     totalBakes: 0,
     ingredients: parsed.ingredients,
+    equipment: parsed.equipment || [],
     steps: parsed.steps,
   });
 
@@ -239,10 +276,7 @@ export const importRecipeFromUrl = onCall(
     // Extract text content from HTML
     const $ = cheerio.load(html);
 
-    // Remove non-content elements
-    $("script, style, nav, header, footer, iframe, noscript, svg, [role='navigation']").remove();
-
-    // Try to find structured recipe data (JSON-LD)
+    // Try to find structured recipe data (JSON-LD) BEFORE removing scripts
     let recipeText = "";
     const jsonLdScripts = $('script[type="application/ld+json"]');
     for (let i = 0; i < jsonLdScripts.length && !recipeText; i++) {
@@ -272,6 +306,9 @@ export const importRecipeFromUrl = onCall(
 
     // If no JSON-LD recipe, fall back to visible text
     if (!recipeText) {
+      // Remove non-content elements before extracting text
+      $("script, style, nav, header, footer, iframe, noscript, svg, [role='navigation']").remove();
+
       // Prefer article/main content if it exists
       const article = $("article, main, [role='main'], .recipe, .entry-content, .post-content");
       if (article.length) {
@@ -286,6 +323,15 @@ export const importRecipeFromUrl = onCall(
     if (!recipeText || recipeText.length < 50) {
       throw new HttpsError("not-found", "Could not find recipe content on that page.");
     }
+
+    const extractionMethod = recipeText.startsWith("{") ? "JSON-LD" : "body-text";
+    logger.info("=== URL EXTRACTION ===", {
+      url,
+      extractionMethod,
+      htmlLength: html.length,
+      extractedLength: recipeText.length,
+      extractedPreview: recipeText.slice(0, 2000),
+    });
 
     return parseRecipeWithClaude(recipeText, parsedUrl.hostname, uid);
   }

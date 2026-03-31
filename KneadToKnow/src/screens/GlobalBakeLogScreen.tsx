@@ -8,13 +8,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -22,9 +20,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useRecipes } from '../hooks/useRecipes';
 import { StarRating } from '../components/StarRating';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
-import { BakeLogEntry, RecipeStackParamList } from '../types';
-
-type Nav = NativeStackNavigationProp<RecipeStackParamList>;
+import { BakeLogEntry } from '../types';
 
 interface BakeLogSection {
   recipeId: string;
@@ -34,9 +30,9 @@ interface BakeLogSection {
 
 export function GlobalBakeLogScreen() {
   const insets = useSafeAreaInsets();
-  const nav = useNavigation<Nav>();
+  const nav = useNavigation();
   const { user } = useAuth();
-  const { recipes } = useRecipes();
+  const { getRecipe } = useRecipes();
   const [entries, setEntries] = useState<BakeLogEntry[]>([]);
 
   useEffect(() => {
@@ -44,8 +40,7 @@ export function GlobalBakeLogScreen() {
     try {
       const q = query(
         collection(db, 'bakes'),
-        where('ownerId', '==', user.uid),
-        orderBy('date', 'desc')
+        where('ownerId', '==', user.uid)
       );
       const unsubscribe = onSnapshot(
         q,
@@ -55,6 +50,7 @@ export function GlobalBakeLogScreen() {
             ...doc.data(),
             date: doc.data().date?.toDate() || new Date(),
           })) as BakeLogEntry[];
+          logs.sort((a, b) => b.date.getTime() - a.date.getTime());
           setEntries(logs);
         },
         (error) => {
@@ -81,10 +77,11 @@ export function GlobalBakeLogScreen() {
   }
 
   for (const [recipeId, data] of grouped) {
-    const recipe = recipes.find((r) => r.id === recipeId);
+    const recipe = getRecipe(recipeId);
+    const storedName = data[0]?.recipeName;
     sections.push({
       recipeId,
-      recipeName: recipe?.name || 'Unknown Recipe',
+      recipeName: recipe?.name || storedName || 'Unknown Recipe',
       data,
     });
   }
@@ -107,7 +104,7 @@ export function GlobalBakeLogScreen() {
           return (
             <TouchableOpacity
               style={styles.sectionHeader}
-              onPress={() => nav.navigate('RecipeDetail', { recipeId: s.recipeId })}
+              onPress={() => nav.dispatch(CommonActions.navigate({ name: 'RecipesTab', params: { screen: 'RecipeDetail', params: { recipeId: s.recipeId } } }))}
               activeOpacity={0.7}
             >
               <Text style={styles.sectionTitle}>{s.recipeName}</Text>
@@ -117,28 +114,45 @@ export function GlobalBakeLogScreen() {
             </TouchableOpacity>
           );
         }}
-        renderItem={({ item }) => (
-          <View style={styles.entryCard}>
-            <View style={styles.entryHeader}>
-              <Text style={styles.entryDate}>
-                {item.date instanceof Date
-                  ? item.date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })
-                  : 'Unknown date'}
-              </Text>
-              <StarRating rating={item.rating} readonly size={16} />
-            </View>
-            {item.notes ? (
-              <Text style={styles.entryNotes}>{item.notes}</Text>
-            ) : null}
-            {item.photoUrl ? (
-              <Image source={{ uri: item.photoUrl }} style={styles.entryPhoto} />
-            ) : null}
-          </View>
-        )}
+        renderItem={({ item, section }) => {
+          const s = section as BakeLogSection;
+          return (
+            <TouchableOpacity
+              style={styles.entryCard}
+              activeOpacity={0.7}
+              onPress={() =>
+                (nav as any).navigate('BakeLogDetail', {
+                  entryId: item.id,
+                  recipeId: item.recipeId,
+                  recipeName: s.recipeName,
+                  date: item.date instanceof Date ? item.date.toISOString() : new Date().toISOString(),
+                  rating: item.rating,
+                  notes: item.notes,
+                  photoUrl: item.photoUrl,
+                })
+              }
+            >
+              <View style={styles.entryHeader}>
+                <Text style={styles.entryDate}>
+                  {item.date instanceof Date
+                    ? item.date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'Unknown date'}
+                </Text>
+                <StarRating rating={item.rating} readonly size={16} />
+              </View>
+              {item.notes ? (
+                <Text style={styles.entryNotes} numberOfLines={2}>{item.notes}</Text>
+              ) : null}
+              {item.photoUrl ? (
+                <Image source={{ uri: item.photoUrl }} style={styles.entryPhoto} />
+              ) : null}
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No Bakes Logged Yet</Text>
