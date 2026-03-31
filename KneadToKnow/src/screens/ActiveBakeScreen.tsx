@@ -13,10 +13,13 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useActiveBake, ActiveBake } from '../hooks/useActiveBake';
 import { StretchFoldTracker } from '../components/StretchFoldTracker';
 import { CountdownTimer } from '../components/CountdownTimer';
+import { ProofingStepCard } from '../components/ProofingStepCard';
 import { SourdoughBoule } from '../components/SourdoughBoule';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
+import { scaleIngredientText } from '../utils/ingredientScaler';
+import { parseDuration } from '../utils/parseDuration';
 
-type ActiveTab = 'ingredients' | 'steps';
+type ActiveTab = 'ingredients' | 'equipment' | 'steps';
 
 function formatElapsed(start: Date): string {
   const ms = Date.now() - start.getTime();
@@ -89,15 +92,18 @@ function BakeDetail({
   showBackButton: boolean;
 }) {
   const { getRecipe } = useRecipes();
-  const { toggleIngredient, toggleStep } = useActiveBake();
+  const { toggleIngredient, toggleEquipment, toggleStep, setLoafCount } = useActiveBake();
   const [activeTab, setActiveTab] = useState<ActiveTab>('ingredients');
 
   const recipe = getRecipe(bake.recipeId);
   if (!recipe) return null;
 
   const ingredientChecks = bake.ingredientChecks;
+  const equipmentChecks = bake.equipmentChecks;
   const stepChecks = bake.stepChecks;
   const ingredientsDone = recipe.ingredients.filter((i) => ingredientChecks[i.id]).length;
+  const equipmentList = recipe.equipment || [];
+  const equipmentDone = equipmentList.filter((e) => equipmentChecks[e.id]).length;
   const stepsDone = recipe.steps.filter((s) => stepChecks[s.id]).length;
   const allStepsDone = stepsDone === recipe.steps.length;
 
@@ -111,6 +117,25 @@ function BakeDetail({
           </TouchableOpacity>
         )}
         <Text style={styles.recipeName}>{recipe.name}</Text>
+        <View style={styles.loafStepper}>
+          <TouchableOpacity
+            style={[styles.stepperButton, bake.loafCount <= 1 && styles.stepperButtonDisabled]}
+            onPress={() => setLoafCount(bake.id, bake.loafCount - 1)}
+            disabled={bake.loafCount <= 1}
+          >
+            <Text style={[styles.stepperButtonText, bake.loafCount <= 1 && styles.stepperButtonTextDisabled]}>−</Text>
+          </TouchableOpacity>
+          <Text style={styles.stepperLabel}>
+            {bake.loafCount} {bake.loafCount === 1 ? 'loaf' : 'loaves'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.stepperButton, bake.loafCount >= 10 && styles.stepperButtonDisabled]}
+            onPress={() => setLoafCount(bake.id, bake.loafCount + 1)}
+            disabled={bake.loafCount >= 10}
+          >
+            <Text style={[styles.stepperButtonText, bake.loafCount >= 10 && styles.stepperButtonTextDisabled]}>+</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.progressRow}>
           <View style={styles.progressItem}>
             <Text style={styles.progressLabel}>Ingredients</Text>
@@ -119,6 +144,17 @@ function BakeDetail({
             </Text>
           </View>
           <View style={styles.progressDivider} />
+          {equipmentList.length > 0 && (
+            <>
+              <View style={styles.progressItem}>
+                <Text style={styles.progressLabel}>Equipment</Text>
+                <Text style={styles.progressValue}>
+                  {equipmentDone}/{equipmentList.length}
+                </Text>
+              </View>
+              <View style={styles.progressDivider} />
+            </>
+          )}
           <View style={styles.progressItem}>
             <Text style={styles.progressLabel}>Steps</Text>
             <Text style={styles.progressValue}>
@@ -132,6 +168,7 @@ function BakeDetail({
       <View style={styles.tabBar}>
         {([
           { key: 'ingredients' as const, label: `Ingredients (${ingredientsDone}/${recipe.ingredients.length})` },
+          ...(equipmentList.length > 0 ? [{ key: 'equipment' as const, label: `Equipment (${equipmentDone}/${equipmentList.length})` }] : []),
           { key: 'steps' as const, label: `Steps (${stepsDone}/${recipe.steps.length})` },
         ]).map((tab) => (
           <TouchableOpacity
@@ -150,7 +187,11 @@ function BakeDetail({
         {/* Ingredients Checklist */}
         {activeTab === 'ingredients' && (
           <View style={styles.section}>
-            <Text style={styles.sectionHint}>Check off ingredients as you gather them.</Text>
+            <Text style={styles.sectionHint}>
+              {bake.loafCount > 1
+                ? `Quantities scaled for ${bake.loafCount} loaves. Check off as you gather them.`
+                : 'Check off ingredients as you gather them.'}
+            </Text>
             {recipe.ingredients.map((ing) => {
               const checked = !!ingredientChecks[ing.id];
               return (
@@ -164,7 +205,32 @@ function BakeDetail({
                     {checked && <Text style={styles.checkmark}>✓</Text>}
                   </View>
                   <Text style={[styles.checkText, checked && styles.checkTextDone]}>
-                    {ing.text}
+                    {scaleIngredientText(ing.text, bake.loafCount)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Equipment Checklist */}
+        {activeTab === 'equipment' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHint}>Check off equipment as you set it up.</Text>
+            {equipmentList.map((item) => {
+              const checked = !!equipmentChecks[item.id];
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.checkItem, checked && styles.checkItemDone]}
+                  onPress={() => toggleEquipment(bake.id, item.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, checked && styles.checkboxDone]}>
+                    {checked && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={[styles.checkText, checked && styles.checkTextDone]}>
+                    {item.text}
                   </Text>
                 </TouchableOpacity>
               );
@@ -183,43 +249,40 @@ function BakeDetail({
                 return <StretchFoldTracker key={step.id} />;
               }
 
+              // Get timer duration: prefer stored value, fall back to parsing text
+              const timerSecs = step.type !== 'stretch_folds'
+                ? (step.timerSeconds || parseDuration(step.text))
+                : null;
+
               if (step.type === 'proof') {
                 return (
-                  <TouchableOpacity
+                  <ProofingStepCard
                     key={step.id}
-                    style={[styles.checkItem, styles.checkItemProof, checked && styles.checkItemDone]}
-                    onPress={() => toggleStep(bake.id, step.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.checkbox, styles.checkboxProof, checked && styles.checkboxDone]}>
-                      {checked && <Text style={styles.checkmark}>✓</Text>}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.checkText, checked && styles.checkTextDone]}>
-                        {step.text}
-                      </Text>
-                      <Text style={styles.proofHint}>
-                        🌡 Use the Proofing tab for timing guidance
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                    stepText={step.text}
+                    checked={checked}
+                    onToggle={() => toggleStep(bake.id, step.id)}
+                  />
                 );
               }
 
               return (
-                <TouchableOpacity
-                  key={step.id}
-                  style={[styles.checkItem, checked && styles.checkItemDone]}
-                  onPress={() => toggleStep(bake.id, step.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.checkbox, checked && styles.checkboxDone]}>
-                    {checked && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                  <Text style={[styles.checkText, checked && styles.checkTextDone]}>
-                    {step.text}
-                  </Text>
-                </TouchableOpacity>
+                <View key={step.id}>
+                  <TouchableOpacity
+                    style={[styles.checkItem, checked && styles.checkItemDone]}
+                    onPress={() => toggleStep(bake.id, step.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, checked && styles.checkboxDone]}>
+                      {checked && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={[styles.checkText, checked && styles.checkTextDone]}>
+                      {step.text}
+                    </Text>
+                  </TouchableOpacity>
+                  {timerSecs && !checked && (
+                    <CountdownTimer label="Step Timer" totalSeconds={timerSecs} />
+                  )}
+                </View>
               );
             })}
 
@@ -285,6 +348,14 @@ export function ActiveBakeScreen() {
         <Text style={styles.emptyText}>
           Go to a recipe and tap "Start Baking" to begin tracking your bake here.
         </Text>
+        <TouchableOpacity
+          style={styles.tutorialLink}
+          onPress={() => nav.navigate('ResourcesTab')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.tutorialLinkLabel}>Just starting out?</Text>
+          <Text style={styles.tutorialLinkAction}>Check our Getting Started tutorial  ›</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -396,6 +467,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  tutorialLink: {
+    marginTop: spacing.xxl,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.warningBorder,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+  },
+  tutorialLinkLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 15,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  tutorialLinkAction: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: colors.amber,
+  },
 
   // ─── Bake Detail ───
   container: {
@@ -420,6 +512,46 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  loafStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  stepperButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.amber,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperButtonDisabled: {
+    backgroundColor: colors.borderLight,
+  },
+  stepperButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 20,
+    color: '#fff',
+    lineHeight: 22,
+  },
+  stepperButtonTextDisabled: {
+    color: colors.textMuted,
+  },
+  stepperLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 16,
+    color: colors.textPrimary,
+    minWidth: 80,
+    textAlign: 'center',
   },
   progressRow: {
     flexDirection: 'row',
@@ -487,6 +619,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     marginBottom: spacing.lg,
+  },
+  equipmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md + 2,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  equipmentBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.golden,
   },
   checkItem: {
     flexDirection: 'row',

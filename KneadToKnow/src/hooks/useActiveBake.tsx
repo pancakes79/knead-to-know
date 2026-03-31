@@ -6,7 +6,9 @@ export interface ActiveBake {
   recipeName: string;
   startedAt: Date;
   ingredientChecks: Record<string, boolean>;
+  equipmentChecks: Record<string, boolean>;
   stepChecks: Record<string, boolean>;
+  loafCount: number;
 }
 
 interface ActiveBakeContextValue {
@@ -17,7 +19,9 @@ interface ActiveBakeContextValue {
   endBake: (bakeId: string) => void;
   selectBake: (bakeId: string) => void;
   toggleIngredient: (bakeId: string, ingredientId: string) => void;
+  toggleEquipment: (bakeId: string, equipmentId: string) => void;
   toggleStep: (bakeId: string, stepId: string) => void;
+  setLoafCount: (bakeId: string, count: number) => void;
 }
 
 const ActiveBakeContext = createContext<ActiveBakeContextValue | null>(null);
@@ -38,7 +42,9 @@ export function ActiveBakeProvider({ children }: { children: React.ReactNode }) 
       recipeName,
       startedAt: new Date(),
       ingredientChecks: {},
+      equipmentChecks: {},
       stepChecks: {},
+      loafCount: 1,
     };
     setActiveBakes((prev) => [...prev, bake]);
     setSelectedBakeId(id);
@@ -64,6 +70,24 @@ export function ActiveBakeProvider({ children }: { children: React.ReactNode }) 
     );
   }, []);
 
+  const toggleEquipment = useCallback((bakeId: string, equipmentId: string) => {
+    setActiveBakes((prev) =>
+      prev.map((b) =>
+        b.id === bakeId
+          ? { ...b, equipmentChecks: { ...b.equipmentChecks, [equipmentId]: !b.equipmentChecks[equipmentId] } }
+          : b
+      )
+    );
+  }, []);
+
+  const setLoafCount = useCallback((bakeId: string, count: number) => {
+    setActiveBakes((prev) =>
+      prev.map((b) =>
+        b.id === bakeId ? { ...b, loafCount: Math.max(1, Math.min(10, count)) } : b
+      )
+    );
+  }, []);
+
   const toggleStep = useCallback((bakeId: string, stepId: string) => {
     setActiveBakes((prev) =>
       prev.map((b) =>
@@ -83,7 +107,9 @@ export function ActiveBakeProvider({ children }: { children: React.ReactNode }) 
       endBake,
       selectBake,
       toggleIngredient,
+      toggleEquipment,
       toggleStep,
+      setLoafCount,
     }}>
       {children}
     </ActiveBakeContext.Provider>

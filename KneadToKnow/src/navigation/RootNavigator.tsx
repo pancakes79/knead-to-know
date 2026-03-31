@@ -14,10 +14,11 @@ import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
 import { EditRecipeScreen } from '../screens/EditRecipeScreen';
 import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
-import { ProofingScreen } from '../screens/ProofingScreen';
+import { ResourcesScreen } from '../screens/ResourcesScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
 import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
 import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
+import { BakeLogDetailScreen } from '../screens/BakeLogDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 // ─── Tab Icons ───
@@ -69,13 +70,22 @@ type RecipeStackParamList = {
   ActiveBake: { recipeId: string };
   BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
 };
 
 type RootTabParamList = {
   RecipesTab: undefined;
-  ProofingTab: undefined;
   ActiveBakeTab: undefined;
   BakeLogTab: undefined;
+  ResourcesTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -100,6 +110,7 @@ function RecipeStackNavigator() {
       <RecipeStack.Screen name="ActiveBake" component={ActiveBakeScreen} options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }} />
       <RecipeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ title: 'Bake Complete', headerShown: false }} />
       <RecipeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
+      <RecipeStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
     </RecipeStack.Navigator>
   );
 }
@@ -110,6 +121,15 @@ type BakeStackParamList = {
   ActiveBakeMain: undefined;
   BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
 };
 
 const BakeStack = createNativeStackNavigator<BakeStackParamList>();
@@ -127,7 +147,41 @@ function BakeStackNavigator() {
       <BakeStack.Screen name="ActiveBakeMain" component={ActiveBakeScreen} options={{ title: 'Active Bake' }} />
       <BakeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ headerShown: false }} />
       <BakeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
+      <BakeStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
     </BakeStack.Navigator>
+  );
+}
+
+// ─── Bake Log Stack (for global log tab) ───
+
+type BakeLogStackParamList = {
+  GlobalBakeLog: undefined;
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
+};
+
+const BakeLogStack = createNativeStackNavigator<BakeLogStackParamList>();
+
+function BakeLogStackNavigator() {
+  return (
+    <BakeLogStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <BakeLogStack.Screen name="GlobalBakeLog" component={GlobalBakeLogScreen} options={{ headerShown: false }} />
+      <BakeLogStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
+    </BakeLogStack.Navigator>
   );
 }
 
@@ -157,6 +211,21 @@ function AuthenticatedApp() {
       }}
     >
       <Tab.Screen
+        name="ActiveBakeTab"
+        component={BakeStackNavigator}
+        options={{
+          tabBarLabel: 'Bake',
+          popToTopOnBlur: true,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconSquare, { borderColor: color }]}>
+                <View style={[styles.tabIconLoaf, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
         name="RecipesTab"
         component={RecipeStackNavigator}
         options={{
@@ -171,36 +240,8 @@ function AuthenticatedApp() {
         }}
       />
       <Tab.Screen
-        name="ProofingTab"
-        component={ProofingScreen}
-        options={{
-          tabBarLabel: 'Proofing',
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabIcon}>
-              <View style={[styles.tabIconCircle, { borderColor: color }]}>
-                <View style={[styles.tabIconHand, { backgroundColor: color }]} />
-              </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ActiveBakeTab"
-        component={BakeStackNavigator}
-        options={{
-          tabBarLabel: 'Bake',
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabIcon}>
-              <View style={[styles.tabIconSquare, { borderColor: color }]}>
-                <View style={[styles.tabIconLoaf, { backgroundColor: color }]} />
-              </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
         name="BakeLogTab"
-        component={GlobalBakeLogScreen}
+        component={BakeLogStackNavigator}
         options={{
           tabBarLabel: 'Log',
           headerShown: false,
@@ -211,6 +252,20 @@ function AuthenticatedApp() {
                   <View style={[styles.tabIconLine, { backgroundColor: color }]} />
                   <View style={[styles.tabIconLine, { backgroundColor: color }]} />
                 </View>
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ResourcesTab"
+        component={ResourcesScreen}
+        options={{
+          tabBarLabel: 'Resources',
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconBook, { borderColor: color }]} />
               </View>
             </View>
           ),
@@ -297,9 +352,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabIconHand: {
-    width: 1.5,
-    height: 6,
+  tabIconBook: {
+    width: 10,
+    height: 8,
+    borderWidth: 1.5,
+    borderRadius: 2,
   },
   tabIconSquare: {
     width: 22,

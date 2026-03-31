@@ -14,7 +14,7 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRecipes } from '../hooks/useRecipes';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
-import { RecipeStackParamList, Ingredient, RecipeStep } from '../types';
+import { RecipeStackParamList, Ingredient, RecipeStep, Equipment } from '../types';
 
 type RouteType = RouteProp<RecipeStackParamList, 'EditRecipe'>;
 type NavType = NativeStackNavigationProp<RecipeStackParamList, 'EditRecipe'>;
@@ -41,6 +41,11 @@ export function EditRecipeScreen() {
     recipe?.steps
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => s.type) || ['step']
+  );
+  const [equipmentTexts, setEquipmentTexts] = useState<string[]>(
+    recipe?.equipment
+      ?.sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((e) => e.text) || ['']
   );
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +101,23 @@ export function EditRecipeScreen() {
     setStepTypes(stepTypes.filter((_, i) => i !== index));
   };
 
+  // ─── Equipment helpers ───
+
+  const updateEquipment = (index: number, text: string) => {
+    const updated = [...equipmentTexts];
+    updated[index] = text;
+    setEquipmentTexts(updated);
+  };
+
+  const addEquipment = () => {
+    setEquipmentTexts([...equipmentTexts, '']);
+  };
+
+  const removeEquipment = (index: number) => {
+    if (equipmentTexts.length <= 1) return;
+    setEquipmentTexts(equipmentTexts.filter((_, i) => i !== index));
+  };
+
   // ─── Save ───
 
   const handleSave = useCallback(async () => {
@@ -143,11 +165,19 @@ export function EditRecipeScreen() {
         };
       });
 
+      const filteredEquipment = equipmentTexts.filter((t) => t.trim());
+      const equipment: Equipment[] = filteredEquipment.map((text, i) => ({
+        id: `e${i + 1}`,
+        text: text.trim(),
+        sortOrder: i,
+      }));
+
       await updateRecipe(recipe.id, {
         name: name.trim(),
         source: source.trim(),
         ingredients,
         steps,
+        equipment,
       });
 
       Alert.alert('Saved!', 'Recipe has been updated.', [
@@ -158,7 +188,7 @@ export function EditRecipeScreen() {
     } finally {
       setSaving(false);
     }
-  }, [name, source, ingredientTexts, stepTexts, stepTypes, recipe, updateRecipe, nav]);
+  }, [name, source, ingredientTexts, stepTexts, stepTypes, equipmentTexts, recipe, updateRecipe, nav]);
 
   const stepTypeLabel = (type: 'step' | 'stretch_folds' | 'proof') => {
     switch (type) {
@@ -273,6 +303,35 @@ export function EditRecipeScreen() {
         <Text style={styles.hint}>
           Tap the step type badge (Step/Fold/Proof) to cycle between types. This controls timers during active bakes.
         </Text>
+
+        {/* Equipment */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Equipment</Text>
+          <TouchableOpacity style={styles.addItemButton} onPress={addEquipment}>
+            <Text style={styles.addItemText}>+ Add</Text>
+          </TouchableOpacity>
+        </View>
+
+        {equipmentTexts.map((text, index) => (
+          <View key={`eq-${index}`} style={styles.editableRow}>
+            <View style={styles.bullet} />
+            <TextInput
+              style={styles.rowInput}
+              value={text}
+              onChangeText={(t) => updateEquipment(index, t)}
+              placeholder="e.g. Dutch oven"
+              placeholderTextColor={colors.textMuted}
+            />
+            {equipmentTexts.length > 1 && (
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => removeEquipment(index)}
+              >
+                <Text style={styles.removeButtonText}>X</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
 
         {/* Save / Cancel */}
         <View style={styles.buttonRow}>
