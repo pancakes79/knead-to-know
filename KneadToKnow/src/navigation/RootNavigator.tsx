@@ -20,6 +20,8 @@ import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
 import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
 import { BakeLogDetailScreen } from '../screens/BakeLogDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { TermsOfServiceScreen } from '../screens/TermsOfServiceScreen';
 
 // ─── Tab Icons ───
 
@@ -185,6 +187,33 @@ function BakeLogStackNavigator() {
   );
 }
 
+// ─── Settings Stack ───
+
+type SettingsStackParamList = {
+  SettingsMain: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+};
+
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+function SettingsStackNavigator() {
+  return (
+    <SettingsStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} options={{ headerShown: false }} />
+      <SettingsStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+      <SettingsStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ title: 'Terms of Service' }} />
+    </SettingsStack.Navigator>
+  );
+}
+
 // ─── Authenticated Tab Navigator ───
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -211,6 +240,20 @@ function AuthenticatedApp() {
       }}
     >
       <Tab.Screen
+        name="RecipesTab"
+        component={RecipeStackNavigator}
+        options={{
+          tabBarLabel: 'Recipes',
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconInner, { borderColor: color }]}>
+                <View style={[styles.tabIconDot, { backgroundColor: color }]} />
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
         name="ActiveBakeTab"
         component={BakeStackNavigator}
         options={{
@@ -220,20 +263,6 @@ function AuthenticatedApp() {
             <View style={styles.tabIcon}>
               <View style={[styles.tabIconSquare, { borderColor: color }]}>
                 <View style={[styles.tabIconLoaf, { backgroundColor: color }]} />
-              </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="RecipesTab"
-        component={RecipeStackNavigator}
-        options={{
-          tabBarLabel: 'Recipes',
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabIcon}>
-              <View style={[styles.tabIconInner, { borderColor: color }]}>
-                <View style={[styles.tabIconDot, { backgroundColor: color }]} />
               </View>
             </View>
           ),
@@ -273,7 +302,7 @@ function AuthenticatedApp() {
       />
       <Tab.Screen
         name="SettingsTab"
-        component={SettingsScreen}
+        component={SettingsStackNavigator}
         options={{
           tabBarLabel: 'Settings',
           tabBarIcon: ({ color }) => (

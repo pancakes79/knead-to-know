@@ -8,8 +8,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveHAConfiguration, deleteAccount as deleteAccountServer } from '../services/cloudApi';
 import { useAuth } from '../hooks/useAuth';
@@ -19,6 +19,7 @@ type TempSource = 'manual' | 'homeassistant';
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const nav = useNavigation<any>();
   const { user, signOut, deleteAccount } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
@@ -102,6 +103,10 @@ export function SettingsScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <View style={styles.brandHeader}>
+        <Text style={styles.brandTitle}>Knead to Know</Text>
+        <Text style={styles.brandSubtitle}>SOURDOUGH COMPANION</Text>
+      </View>
       <Text style={styles.title}>Settings</Text>
 
       {/* ── Profile Section ── */}
@@ -129,7 +134,7 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={styles.actionRow}
-            onPress={() => Linking.openURL('https://kneadtoknow.app/privacy')}
+            onPress={() => nav.navigate('PrivacyPolicy')}
           >
             <Text style={styles.actionText}>Privacy Policy</Text>
             <Text style={styles.actionChevron}>›</Text>
@@ -137,7 +142,7 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.actionRow, styles.actionRowLast]}
-            onPress={() => Linking.openURL('https://kneadtoknow.app/terms')}
+            onPress={() => nav.navigate('TermsOfService')}
           >
             <Text style={styles.actionText}>Terms of Service</Text>
             <Text style={styles.actionChevron}>›</Text>
@@ -287,11 +292,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgPrimary,
     paddingHorizontal: spacing.xl,
   },
+  brandHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  brandTitle: {
+    fontFamily: fonts.headingHeavy,
+    fontSize: 32,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 38,
+  },
+  brandSubtitle: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.textMuted,
+    letterSpacing: 2,
+    marginTop: 4,
+  },
   title: {
     fontFamily: fonts.heading,
     fontSize: 26,
     color: colors.textPrimary,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     marginBottom: spacing.xl,
   },
 
