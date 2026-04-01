@@ -77,7 +77,7 @@ export function RecipeListScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Knead{'\n'}to Know</Text>
+        <Text style={styles.title}>Knead to Know</Text>
         <Text style={styles.subtitle}>SOURDOUGH COMPANION</Text>
       </View>
 
@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.headingHeavy,
-    fontSize: 36,
+    fontSize: 32,
     color: colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 38,
   },
   subtitle: {
     fontFamily: fonts.bodySemiBold,

@@ -88,6 +88,10 @@ export function GlobalBakeLogScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.brandHeader}>
+        <Text style={styles.brandTitle}>Knead to Know</Text>
+        <Text style={styles.brandSubtitle}>SOURDOUGH COMPANION</Text>
+      </View>
       <View style={styles.header}>
         <Text style={styles.title}>Bake Log</Text>
         <Text style={styles.subtitle}>Your baking history across all recipes</Text>
@@ -171,9 +175,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgPrimary,
   },
+  brandHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  brandTitle: {
+    fontFamily: fonts.headingHeavy,
+    fontSize: 32,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 38,
+  },
+  brandSubtitle: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.textMuted,
+    letterSpacing: 2,
+    marginTop: 4,
+  },
   header: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
   title: {

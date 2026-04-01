@@ -40,6 +40,10 @@ function BakePicker({
 }) {
   return (
     <View style={styles.pickerContainer}>
+      <View style={styles.brandHeader}>
+        <Text style={styles.brandTitle}>Knead to Know</Text>
+        <Text style={styles.brandSubtitle}>SOURDOUGH COMPANION</Text>
+      </View>
       <View style={styles.pickerHeader}>
         <Text style={styles.pickerTitle}>Active Bakes</Text>
         <Text style={styles.pickerSubtitle}>
@@ -389,6 +393,27 @@ export function ActiveBakeScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ─── Brand Header ───
+  brandHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  brandTitle: {
+    fontFamily: fonts.headingHeavy,
+    fontSize: 32,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 38,
+  },
+  brandSubtitle: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.textMuted,
+    letterSpacing: 2,
+    marginTop: 4,
+  },
+
   // ─── Picker ───
   pickerContainer: {
     flex: 1,
