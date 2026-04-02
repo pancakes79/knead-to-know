@@ -12,11 +12,18 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { RecipeListScreen } from '../screens/RecipeListScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ImportRecipeScreen } from '../screens/ImportRecipeScreen';
+import { EditRecipeScreen } from '../screens/EditRecipeScreen';
 import { ActiveBakeScreen } from '../screens/ActiveBakeScreen';
-import { ProofingScreen } from '../screens/ProofingScreen';
+import { ResourcesScreen } from '../screens/ResourcesScreen';
 import { BakeLogScreen } from '../screens/BakeLogScreen';
+import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
+import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
+import { BakeLogDetailScreen } from '../screens/BakeLogDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { MFAEnrollScreen } from '../screens/MFAEnrollScreen';
+import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
+import { TermsOfServiceScreen } from '../screens/TermsOfServiceScreen';
 
 // ─── Tab Icons ───
 
@@ -62,17 +69,28 @@ function TabIcon({ label, color, size }: { label: string; color: string; size: n
 type RecipeStackParamList = {
   RecipeList: undefined;
   RecipeDetail: { recipeId: string };
+  EditRecipe: { recipeId: string };
   ImportRecipe: undefined;
   ActiveBake: { recipeId: string };
+  BakeComplete: { recipeId: string };
   BakeLog: { recipeId: string };
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
 };
 
 type RootTabParamList = {
   RecipesTab: undefined;
-  ProofingTab: undefined;
   ActiveBakeTab: undefined;
+  BakeLogTab: undefined;
+  ResourcesTab: undefined;
   SettingsTab: undefined;
-  ProfileTab: undefined;
 };
 
 // ─── Recipe Stack ───
@@ -91,10 +109,112 @@ function RecipeStackNavigator() {
     >
       <RecipeStack.Screen name="RecipeList" component={RecipeListScreen} options={{ headerShown: false }} />
       <RecipeStack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ title: 'Recipe' }} />
+      <RecipeStack.Screen name="EditRecipe" component={EditRecipeScreen} options={{ title: 'Edit Recipe' }} />
       <RecipeStack.Screen name="ImportRecipe" component={ImportRecipeScreen} options={{ title: 'Import Recipe', presentation: 'modal' }} />
       <RecipeStack.Screen name="ActiveBake" component={ActiveBakeScreen} options={{ title: 'Active Bake', headerBackTitle: 'Recipe' }} />
+      <RecipeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ title: 'Bake Complete', headerShown: false }} />
       <RecipeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
+      <RecipeStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
     </RecipeStack.Navigator>
+  );
+}
+
+// ─── Bake Stack ───
+
+type BakeStackParamList = {
+  ActiveBakeMain: undefined;
+  BakeComplete: { recipeId: string };
+  BakeLog: { recipeId: string };
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
+};
+
+const BakeStack = createNativeStackNavigator<BakeStackParamList>();
+
+function BakeStackNavigator() {
+  return (
+    <BakeStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <BakeStack.Screen name="ActiveBakeMain" component={ActiveBakeScreen} options={{ title: 'Active Bake' }} />
+      <BakeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ headerShown: false }} />
+      <BakeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
+      <BakeStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
+    </BakeStack.Navigator>
+  );
+}
+
+// ─── Bake Log Stack (for global log tab) ───
+
+type BakeLogStackParamList = {
+  GlobalBakeLog: undefined;
+  BakeLogDetail: {
+    entryId: string;
+    recipeId: string;
+    recipeName: string;
+    date: string;
+    rating: number;
+    notes: string;
+    photoUrl: string | null;
+  };
+};
+
+const BakeLogStack = createNativeStackNavigator<BakeLogStackParamList>();
+
+function BakeLogStackNavigator() {
+  return (
+    <BakeLogStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <BakeLogStack.Screen name="GlobalBakeLog" component={GlobalBakeLogScreen} options={{ headerShown: false }} />
+      <BakeLogStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
+    </BakeLogStack.Navigator>
+  );
+}
+
+// ─── Settings Stack ───
+
+type SettingsStackParamList = {
+  SettingsMain: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  MFAEnroll: undefined;
+};
+
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+function SettingsStackNavigator() {
+  return (
+    <SettingsStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} options={{ headerShown: false }} />
+      <SettingsStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+      <SettingsStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ title: 'Terms of Service' }} />
+      <SettingsStack.Screen name="MFAEnroll" component={MFAEnrollScreen} options={{ title: 'Enable MFA' }} />
+    </SettingsStack.Navigator>
   );
 }
 
@@ -103,9 +223,6 @@ function RecipeStackNavigator() {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 function AuthenticatedApp() {
-  const { user } = useAuth();
-  const initial = (user?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -141,24 +258,11 @@ function AuthenticatedApp() {
         }}
       />
       <Tab.Screen
-        name="ProofingTab"
-        component={ProofingScreen}
-        options={{
-          tabBarLabel: 'Proofing',
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabIcon}>
-              <View style={[styles.tabIconCircle, { borderColor: color }]}>
-                <View style={[styles.tabIconHand, { backgroundColor: color }]} />
-              </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
         name="ActiveBakeTab"
-        component={ActiveBakeScreen}
+        component={BakeStackNavigator}
         options={{
           tabBarLabel: 'Bake',
+          popToTopOnBlur: true,
           tabBarIcon: ({ color }) => (
             <View style={styles.tabIcon}>
               <View style={[styles.tabIconSquare, { borderColor: color }]}>
@@ -169,8 +273,40 @@ function AuthenticatedApp() {
         }}
       />
       <Tab.Screen
+        name="BakeLogTab"
+        component={BakeLogStackNavigator}
+        options={{
+          tabBarLabel: 'Log',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconLines, { borderColor: color }]}>
+                  <View style={[styles.tabIconLine, { backgroundColor: color }]} />
+                  <View style={[styles.tabIconLine, { backgroundColor: color }]} />
+                </View>
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ResourcesTab"
+        component={ResourcesScreen}
+        options={{
+          tabBarLabel: 'Resources',
+          tabBarIcon: ({ color }) => (
+            <View style={styles.tabIcon}>
+              <View style={[styles.tabIconCircle, { borderColor: color }]}>
+                <View style={[styles.tabIconBook, { borderColor: color }]} />
+              </View>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
         name="SettingsTab"
-        component={SettingsScreen}
+        component={SettingsStackNavigator}
         options={{
           tabBarLabel: 'Settings',
           tabBarIcon: ({ color }) => (
@@ -178,34 +314,6 @@ function AuthenticatedApp() {
               <View style={[styles.tabIconCircle, { borderColor: color }]}>
                 <View style={[styles.tabIconGear, { backgroundColor: color }]} />
               </View>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: initial,
-          tabBarIcon: ({ color }) => (
-            <View style={[styles.profileIcon, {
-              borderColor: color,
-              backgroundColor: color === colors.amber ? colors.cream : 'transparent',
-            }]}>
-              <View style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: color,
-                marginBottom: 1,
-              }} />
-              <View style={{
-                width: 16,
-                height: 8,
-                borderTopLeftRadius: 8,
-                borderTopRightRadius: 8,
-                backgroundColor: color,
-              }} />
             </View>
           ),
         }}
@@ -239,7 +347,13 @@ export function RootNavigator() {
     );
   }
 
-  // Authenticated — show the app
+  // Authenticated but email not verified (email/password users only)
+  // Google OAuth users always have emailVerified = true
+  if (!user.emailVerified) {
+    return <EmailVerificationScreen />;
+  }
+
+  // Authenticated and verified — show the app
   return <AuthenticatedApp />;
 }
 
@@ -277,9 +391,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabIconHand: {
-    width: 1.5,
-    height: 6,
+  tabIconBook: {
+    width: 10,
+    height: 8,
+    borderWidth: 1.5,
+    borderRadius: 2,
   },
   tabIconSquare: {
     width: 22,
@@ -301,13 +417,13 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  profileIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    justifyContent: 'center',
+  tabIconLines: {
+    gap: 3,
     alignItems: 'center',
-    overflow: 'hidden',
+  },
+  tabIconLine: {
+    width: 10,
+    height: 1.5,
+    borderRadius: 1,
   },
 });
