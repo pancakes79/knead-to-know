@@ -19,9 +19,8 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getAuth } from 'firebase/auth';
-import { db, storage } from '../config/firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { db, storage, auth } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useRecipes } from '../hooks/useRecipes';
 import { StarRating } from '../components/StarRating';
@@ -35,7 +34,6 @@ export function BakeLogScreen() {
   const { user } = useAuth();
   const nav = useNavigation<NavigationProp<RecipeStackParamList>>();
   const { getRecipe } = useRecipes();
-  const { user } = useAuth();
   const recipe = getRecipe(route.params.recipeId);
 
   const [entries, setEntries] = useState<BakeLogEntry[]>([]);
@@ -124,44 +122,33 @@ export function BakeLogScreen() {
     try {
       let photoUrl: string | null = null;
 
-      // Upload photo to Firebase Storage via REST API
+      // Upload photo to Firebase Storage via XHR (Firebase JS SDK Blob APIs don't work in RN)
       if (photoUri) {
         try {
-          const response = await fetch(photoUri);
-          const blob = await response.blob();
-          const filename = `bake-photos/${user!.uid}/${route.params.recipeId}/${Date.now()}.jpg`;
-          const storageRef = ref(storage, filename);
-          await uploadBytes(storageRef, blob);
-          const token = await getAuth().currentUser?.getIdToken();
+          const filePath = `bake-photos/${user!.uid}/${route.params.recipeId}/${Date.now()}.jpg`;
           const bucket = storage.app.options.storageBucket;
-          const filePath = `bake-photos/${user?.uid}/${Date.now()}.jpg`;
+          const token = await auth.currentUser?.getIdToken();
           const encodedPath = encodeURIComponent(filePath);
-
           const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
-          console.log('Upload URL:', uploadUrl);
 
-          // React Native's XHR can upload file URIs natively
-          const uploadResult: string = await new Promise((resolve, reject) => {
+          await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.onload = () => {
               if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(xhr.responseText);
+                resolve();
               } else {
-                reject(new Error(`Upload failed with status ${xhr.status}`));
+                reject(new Error(`Upload failed: ${xhr.status}`));
               }
             };
             xhr.onerror = () => reject(new Error('Upload network error'));
             xhr.open('POST', uploadUrl);
             xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.setRequestHeader('Content-Type', 'image/jpeg');
-
-            // RN's XHR handles file URIs natively when sent via send()
-            xhr.send({ uri: photoUri } as any);
+            xhr.send({ uri: photoUri } as any); // RN XHR handles file URIs natively
           });
 
           const storageRef = ref(storage, filePath);
           photoUrl = await getDownloadURL(storageRef);
-          console.log('Photo uploaded, URL:', photoUrl);
         } catch (uploadErr) {
           console.log('Photo upload failed:', uploadErr);
           Alert.alert('Photo Upload Failed', 'Your bake will be saved without the photo.');

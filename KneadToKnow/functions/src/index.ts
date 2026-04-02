@@ -23,6 +23,7 @@ import { getStorage } from "firebase-admin/storage";
 import { initializeApp } from "firebase-admin/app";
 import Anthropic from "@anthropic-ai/sdk";
 import * as cheerio from "cheerio";
+import { lookup } from "dns/promises";
 
 // ─── Init ───
 
@@ -39,6 +40,52 @@ function requireAuth(request: { auth?: { uid: string } }): string {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
   return request.auth.uid;
+}
+
+/**
+ * SSRF protection: resolve hostname and block private/internal IPs.
+ */
+async function assertPublicUrl(parsedUrl: URL): Promise<void> {
+  const hostname = parsedUrl.hostname;
+
+  // Block obvious private hostnames
+  const blockedHostnames = ["localhost", "metadata.google.internal"];
+  if (blockedHostnames.includes(hostname.toLowerCase())) {
+    throw new HttpsError("invalid-argument", "URLs pointing to internal addresses are not allowed.");
+  }
+
+  // Resolve DNS and check all returned IPs
+  try {
+    const { address } = await lookup(hostname);
+    if (isPrivateIP(address)) {
+      throw new HttpsError("invalid-argument", "URLs pointing to internal addresses are not allowed.");
+    }
+  } catch (e: any) {
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError("invalid-argument", "Could not resolve hostname.");
+  }
+}
+
+function isPrivateIP(ip: string): boolean {
+  // IPv4 private/reserved ranges
+  const parts = ip.split(".").map(Number);
+  if (parts.length === 4) {
+    const [a, b] = parts;
+    if (a === 127) return true;                          // 127.0.0.0/8  loopback
+    if (a === 10) return true;                           // 10.0.0.0/8   private
+    if (a === 172 && b >= 16 && b <= 31) return true;    // 172.16.0.0/12 private
+    if (a === 192 && b === 168) return true;             // 192.168.0.0/16 private
+    if (a === 169 && b === 254) return true;             // 169.254.0.0/16 link-local
+    if (a === 0) return true;                            // 0.0.0.0/8
+    if (ip === "255.255.255.255") return true;           // broadcast
+  }
+
+  // IPv6 loopback and link-local
+  if (ip === "::1" || ip === "::") return true;
+  if (ip.startsWith("fe80:")) return true;
+  if (ip.startsWith("fc") || ip.startsWith("fd")) return true; // unique local
+
+  return false;
 }
 
 function getAnthropicClient(): Anthropic {
@@ -351,6 +398,9 @@ export const importRecipeFromUrl = onCall(
     } catch {
       throw new HttpsError("invalid-argument", "Please provide a valid HTTP(S) URL.");
     }
+
+    // SSRF protection: block requests to private/internal IPs
+    await assertPublicUrl(parsedUrl);
 
     await checkRateLimit(uid);
 

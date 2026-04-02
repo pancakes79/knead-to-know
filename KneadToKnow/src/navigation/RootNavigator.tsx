@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
+import { RecipeStackParamList, RootTabParamList } from '../types';
 import { colors, fonts } from '../constants/theme';
 
 // Auth screens
@@ -19,6 +20,12 @@ import { BakeLogScreen } from '../screens/BakeLogScreen';
 import { BakeCompleteScreen } from '../screens/BakeCompleteScreen';
 import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
 import { BakeLogDetailScreen } from '../screens/BakeLogDetailScreen';
+import { ProofingCalculatorScreen } from '../screens/ProofingCalculatorScreen';
+import { StarterFeedingScreen } from '../screens/StarterFeedingScreen';
+import { BakersMathScreen } from '../screens/BakersMathScreen';
+import { GlossaryScreen } from '../screens/GlossaryScreen';
+import { EquipmentScreen } from '../screens/EquipmentScreen';
+import { GettingStartedScreen } from '../screens/GettingStartedScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import { MFAEnrollScreen } from '../screens/MFAEnrollScreen';
@@ -63,35 +70,6 @@ function TabIcon({ label, color, size }: { label: string; color: string; size: n
     </View>
   );
 }
-
-// ─── Navigation Types ───
-
-type RecipeStackParamList = {
-  RecipeList: undefined;
-  RecipeDetail: { recipeId: string };
-  EditRecipe: { recipeId: string };
-  ImportRecipe: undefined;
-  ActiveBake: { recipeId: string };
-  BakeComplete: { recipeId: string };
-  BakeLog: { recipeId: string };
-  BakeLogDetail: {
-    entryId: string;
-    recipeId: string;
-    recipeName: string;
-    date: string;
-    rating: number;
-    notes: string;
-    photoUrl: string | null;
-  };
-};
-
-type RootTabParamList = {
-  RecipesTab: undefined;
-  ActiveBakeTab: undefined;
-  BakeLogTab: undefined;
-  ResourcesTab: undefined;
-  SettingsTab: undefined;
-};
 
 // ─── Recipe Stack ───
 
@@ -186,6 +164,41 @@ function BakeLogStackNavigator() {
       <BakeLogStack.Screen name="GlobalBakeLog" component={GlobalBakeLogScreen} options={{ headerShown: false }} />
       <BakeLogStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
     </BakeLogStack.Navigator>
+  );
+}
+
+// ─── Resources Stack ───
+
+type ResourcesStackParamList = {
+  ResourcesMain: undefined;
+  ProofingCalculator: undefined;
+  StarterFeeding: undefined;
+  BakersMath: undefined;
+  Glossary: undefined;
+  Equipment: undefined;
+  GettingStarted: undefined;
+};
+
+const ResourcesStack = createNativeStackNavigator<ResourcesStackParamList>();
+
+function ResourcesStackNavigator() {
+  return (
+    <ResourcesStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bgPrimary },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: fonts.bodyBold, fontSize: 18 },
+        headerShadowVisible: false,
+      }}
+    >
+      <ResourcesStack.Screen name="ResourcesMain" component={ResourcesScreen} options={{ headerShown: false }} />
+      <ResourcesStack.Screen name="ProofingCalculator" component={ProofingCalculatorScreen} options={{ title: 'Proofing Calculator' }} />
+      <ResourcesStack.Screen name="StarterFeeding" component={StarterFeedingScreen} options={{ title: 'Starter Feeding' }} />
+      <ResourcesStack.Screen name="BakersMath" component={BakersMathScreen} options={{ title: "Baker's Math" }} />
+      <ResourcesStack.Screen name="Glossary" component={GlossaryScreen} options={{ title: 'Glossary' }} />
+      <ResourcesStack.Screen name="Equipment" component={EquipmentScreen} options={{ title: 'Equipment' }} />
+      <ResourcesStack.Screen name="GettingStarted" component={GettingStartedScreen} options={{ title: 'Getting Started' }} />
+    </ResourcesStack.Navigator>
   );
 }
 
@@ -292,7 +305,7 @@ function AuthenticatedApp() {
       />
       <Tab.Screen
         name="ResourcesTab"
-        component={ResourcesScreen}
+        component={ResourcesStackNavigator}
         options={{
           tabBarLabel: 'Resources',
           tabBarIcon: ({ color }) => (

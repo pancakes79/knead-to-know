@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { useRecipes } from '../hooks/useRecipes';
 import { importRecipeFromUrl, importRecipeFromText, importRecipeFromPdf } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
@@ -58,15 +58,12 @@ export function ImportRecipeScreen() {
       const isPdf = file.mimeType === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
 
       let imported;
+      const fsFile = new File(file.uri);
       if (isPdf) {
-        const base64 = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        const base64 = await fsFile.base64();
         imported = await importRecipeFromPdf(base64, file.name || 'Uploaded PDF');
       } else {
-        const text = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+        const text = await fsFile.text();
         imported = await importRecipeFromText(text, file.name || 'Uploaded file');
       }
 
