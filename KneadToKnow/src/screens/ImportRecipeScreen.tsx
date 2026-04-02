@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useRecipes } from '../hooks/useRecipes';
-import { importRecipeFromUrl, importRecipeFromText } from '../services/cloudApi';
+import { importRecipeFromUrl, importRecipeFromText, importRecipeFromPdf } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type ImportTab = 'url' | 'file' | 'manual';
@@ -54,11 +55,21 @@ export function ImportRecipeScreen() {
 
       setImporting(true);
       const file = result.assets[0];
+      const isPdf = file.mimeType === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
 
-      const response = await fetch(file.uri);
-      const text = await response.text();
+      let imported;
+      if (isPdf) {
+        const base64 = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        imported = await importRecipeFromPdf(base64, file.name || 'Uploaded PDF');
+      } else {
+        const text = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        imported = await importRecipeFromText(text, file.name || 'Uploaded file');
+      }
 
-      const imported = await importRecipeFromText(text, file.name || 'Uploaded file');
       Alert.alert('Success!', `"${imported.name}" has been added to your recipe bank.`);
       nav.goBack();
     } catch (error: any) {
