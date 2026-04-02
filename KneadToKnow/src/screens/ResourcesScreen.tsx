@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,24 +6,65 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ProofingCalculator } from '../components/ProofingCalculator';
-import { StarterFeedingCalculator } from '../components/StarterFeedingCalculator';
-import { BakersMathCalculator } from '../components/BakersMathCalculator';
-import { SourdoughGlossary } from '../components/SourdoughGlossary';
-import { CommonEquipment } from '../components/CommonEquipment';
-import { GettingStartedGuide } from '../components/GettingStartedGuide';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
-type ResourceSection = 'proofing' | 'feeding' | 'bakersMath' | 'glossary' | 'equipment' | 'gettingStarted' | null;
+type ResourcesStackParamList = {
+  ResourcesMain: undefined;
+  ProofingCalculator: undefined;
+  StarterFeeding: undefined;
+  BakersMath: undefined;
+  Glossary: undefined;
+  Equipment: undefined;
+  GettingStarted: undefined;
+};
+
+type Nav = NativeStackNavigationProp<ResourcesStackParamList, 'ResourcesMain'>;
+
+const RESOURCES = [
+  {
+    key: 'ProofingCalculator' as const,
+    icon: '🌡',
+    title: 'Proofing Calculator',
+    description: 'Estimate proof time based on dough temperature',
+  },
+  {
+    key: 'StarterFeeding' as const,
+    icon: '🫙',
+    title: 'Starter Feeding Calculator',
+    description: 'Calculate flour and water for common feeding ratios',
+  },
+  {
+    key: 'BakersMath' as const,
+    icon: '📐',
+    title: "Baker's Math",
+    description: "Calculate ingredient weights from baker's percentages",
+  },
+  {
+    key: 'Glossary' as const,
+    icon: '📚',
+    title: 'Sourdough Glossary',
+    description: 'Common terms and techniques explained',
+  },
+  {
+    key: 'Equipment' as const,
+    icon: '🍳',
+    title: 'Common Equipment',
+    description: 'Essential tools every sourdough baker needs',
+  },
+  {
+    key: 'GettingStarted' as const,
+    icon: '🎓',
+    title: 'Getting Started',
+    description: 'A guided tutorial for beginner sourdough bakers',
+  },
+];
 
 export function ResourcesScreen() {
   const insets = useSafeAreaInsets();
-  const [expanded, setExpanded] = useState<ResourceSection>(null);
-
-  const toggle = (section: ResourceSection) => {
-    setExpanded((prev) => (prev === section ? null : section));
-  };
+  const nav = useNavigation<Nav>();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -37,131 +78,23 @@ export function ResourcesScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Proofing Calculator */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'proofing' && styles.cardActive]}
-          onPress={() => toggle('proofing')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>🌡</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Proofing Calculator</Text>
-              <Text style={styles.cardDescription}>Estimate proof time based on dough temperature</Text>
+        {RESOURCES.map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            style={styles.card}
+            onPress={() => nav.navigate(item.key)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardIcon}>{item.icon}</Text>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardDescription}>{item.description}</Text>
+              </View>
+              <Text style={styles.cardChevron}>›</Text>
             </View>
-            <Text style={styles.cardChevron}>{expanded === 'proofing' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'proofing' && (
-          <View style={styles.expandedContent}>
-            <ProofingCalculator />
-          </View>
-        )}
-
-        {/* Starter Feeding Calculator */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'feeding' && styles.cardActive]}
-          onPress={() => toggle('feeding')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>🫙</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Starter Feeding Calculator</Text>
-              <Text style={styles.cardDescription}>Calculate flour and water for common feeding ratios</Text>
-            </View>
-            <Text style={styles.cardChevron}>{expanded === 'feeding' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'feeding' && (
-          <View style={styles.expandedContent}>
-            <StarterFeedingCalculator />
-          </View>
-        )}
-
-        {/* Baker's Math Calculator */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'bakersMath' && styles.cardActive]}
-          onPress={() => toggle('bakersMath')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>📐</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Baker's Math</Text>
-              <Text style={styles.cardDescription}>Calculate ingredient weights from baker's percentages</Text>
-            </View>
-            <Text style={styles.cardChevron}>{expanded === 'bakersMath' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'bakersMath' && (
-          <View style={styles.expandedContent}>
-            <BakersMathCalculator />
-          </View>
-        )}
-
-        {/* Sourdough Glossary */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'glossary' && styles.cardActive]}
-          onPress={() => toggle('glossary')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>📚</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Sourdough Glossary</Text>
-              <Text style={styles.cardDescription}>Common terms and techniques explained</Text>
-            </View>
-            <Text style={styles.cardChevron}>{expanded === 'glossary' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'glossary' && (
-          <View style={styles.expandedContent}>
-            <SourdoughGlossary />
-          </View>
-        )}
-
-        {/* Common Equipment */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'equipment' && styles.cardActive]}
-          onPress={() => toggle('equipment')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>🍳</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Common Equipment</Text>
-              <Text style={styles.cardDescription}>Essential tools every sourdough baker needs</Text>
-            </View>
-            <Text style={styles.cardChevron}>{expanded === 'equipment' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'equipment' && (
-          <View style={styles.expandedContent}>
-            <CommonEquipment />
-          </View>
-        )}
-
-        {/* Getting Started Guide */}
-        <TouchableOpacity
-          style={[styles.card, expanded === 'gettingStarted' && styles.cardActive]}
-          onPress={() => toggle('gettingStarted')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardIcon}>🎓</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>Getting Started</Text>
-              <Text style={styles.cardDescription}>A guided tutorial for beginner sourdough bakers</Text>
-            </View>
-            <Text style={styles.cardChevron}>{expanded === 'gettingStarted' ? '▾' : '›'}</Text>
-          </View>
-        </TouchableOpacity>
-        {expanded === 'gettingStarted' && (
-          <View style={styles.expandedContent}>
-            <GettingStartedGuide />
-          </View>
-        )}
+          </TouchableOpacity>
+        ))}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -221,12 +154,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.sm,
   },
-  cardActive: {
-    borderColor: colors.amber,
-  },
-  cardDisabled: {
-    opacity: 0.5,
-  },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,9 +171,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 2,
   },
-  cardTitleDisabled: {
-    color: colors.textMuted,
-  },
   cardDescription: {
     fontFamily: fonts.body,
     fontSize: 13,
@@ -256,8 +180,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 18,
     color: colors.amber,
-  },
-  expandedContent: {
-    marginBottom: spacing.md,
   },
 });

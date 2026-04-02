@@ -20,7 +20,7 @@ type TempSource = 'manual' | 'homeassistant';
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { user, signOut, deleteAccount, isMFAEnrolled, disableMFA } = useAuth();
+  const { user, signOut, isMFAEnrolled, disableMFA } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
   // Temperature source
@@ -86,7 +86,7 @@ export function SettingsScreen() {
         },
       ]
     );
-  }, [deleteAccount]);
+  }, []);
 
   if (!user) return null;
 
