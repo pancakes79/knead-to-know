@@ -21,6 +21,8 @@ import { GlobalBakeLogScreen } from '../screens/GlobalBakeLogScreen';
 import { BakeLogDetailScreen } from '../screens/BakeLogDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { MFAEnrollScreen } from '../screens/MFAEnrollScreen';
+import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 import { TermsOfServiceScreen } from '../screens/TermsOfServiceScreen';
 
 // ─── Tab Icons ───
@@ -193,6 +195,7 @@ type SettingsStackParamList = {
   SettingsMain: undefined;
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
+  MFAEnroll: undefined;
 };
 
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
@@ -210,6 +213,7 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} options={{ headerShown: false }} />
       <SettingsStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
       <SettingsStack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ title: 'Terms of Service' }} />
+      <SettingsStack.Screen name="MFAEnroll" component={MFAEnrollScreen} options={{ title: 'Enable MFA' }} />
     </SettingsStack.Navigator>
   );
 }
@@ -343,7 +347,13 @@ export function RootNavigator() {
     );
   }
 
-  // Authenticated — show the app
+  // Authenticated but email not verified (email/password users only)
+  // Google OAuth users always have emailVerified = true
+  if (!user.emailVerified) {
+    return <EmailVerificationScreen />;
+  }
+
+  // Authenticated and verified — show the app
   return <AuthenticatedApp />;
 }
 

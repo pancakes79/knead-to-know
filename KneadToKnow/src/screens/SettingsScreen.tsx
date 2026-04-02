@@ -20,7 +20,7 @@ type TempSource = 'manual' | 'homeassistant';
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { user, signOut, deleteAccount } = useAuth();
+  const { user, signOut, deleteAccount, isMFAEnrolled, disableMFA } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
   // Temperature source
@@ -147,6 +147,64 @@ export function SettingsScreen() {
             <Text style={styles.actionText}>Terms of Service</Text>
             <Text style={styles.actionChevron}>›</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── Security Section ── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>SECURITY</Text>
+        <View style={styles.actionList}>
+          {isMFAEnrolled ? (
+            <>
+              <View style={styles.mfaStatusRow}>
+                <View style={styles.mfaBadge}>
+                  <Text style={styles.mfaBadgeText}>Enabled</Text>
+                </View>
+                <Text style={styles.mfaStatusText}>
+                  Two-factor authentication is active
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.actionRow, styles.actionRowLast]}
+                onPress={() => {
+                  Alert.alert(
+                    'Disable MFA',
+                    'Are you sure? Your account will be less secure without two-factor authentication.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Disable',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await disableMFA();
+                            Alert.alert('MFA Disabled', 'Two-factor authentication has been removed.');
+                          } catch (err: any) {
+                            if (err.code === 'auth/requires-recent-login') {
+                              Alert.alert('Re-authentication Required', 'Please sign out and sign back in, then try again.');
+                            } else {
+                              Alert.alert('Error', err.message || 'Failed to disable MFA.');
+                            }
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Text style={[styles.actionText, { color: '#E24B4A' }]}>Disable MFA</Text>
+                <Text style={styles.actionChevron}>›</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionRow, styles.actionRowLast]}
+              onPress={() => nav.navigate('MFAEnroll')}
+            >
+              <Text style={styles.actionText}>Enable Two-Factor Authentication</Text>
+              <Text style={styles.actionChevron}>›</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -404,6 +462,31 @@ const styles = StyleSheet.create({
   actionChevron: {
     fontSize: 20,
     color: colors.textMuted,
+  },
+  mfaStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+  },
+  mfaBadge: {
+    backgroundColor: colors.successBg,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  mfaBadgeText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    color: colors.successText,
+  },
+  mfaStatusText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textSecondary,
+    flex: 1,
   },
 
   // ─── Temperature Source ───
