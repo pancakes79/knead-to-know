@@ -5,6 +5,7 @@
  *
  * Functions:
  *   importRecipe          – Parse pasted text into a structured recipe (Claude)
+ *   importRecipeFromPdf   – Parse a PDF file into a structured recipe (Claude)
  *   importRecipeFromUrl   – Fetch URL, strip HTML, parse recipe (Claude)
  *   toggleRecipeVisibility – Toggle recipe private/shared
  *   getTemperatureFromHA  – Read temp from user's Home Assistant
@@ -223,6 +224,107 @@ export const importRecipe = onCall(
 
     await checkRateLimit(uid);
     return parseRecipeWithClaude(content, source || "Pasted text", uid);
+  }
+);
+
+/**
+ * importRecipeFromPdf — Parse a PDF file into a structured recipe
+ */
+export const importRecipeFromPdf = onCall(
+  { secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    const uid = requireAuth(request);
+    const { pdfBase64, source } = request.data as { pdfBase64: string; source: string };
+
+    if (!pdfBase64?.trim()) {
+      throw new HttpsError("invalid-argument", "PDF content is required.");
+    }
+
+    // Limit to ~10MB base64 (~7.5MB file)
+    if (pdfBase64.length > 10 * 1024 * 1024) {
+      throw new HttpsError("invalid-argument", "PDF is too large. Maximum size is ~7.5MB.");
+    }
+
+    await checkRateLimit(uid);
+
+    const anthropic = getAnthropicClient();
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdfBase64,
+              },
+            },
+            {
+              type: "text",
+              text: "Parse the recipe from this PDF document.",
+            },
+          ],
+        },
+      ],
+      system: RECIPE_PARSE_PROMPT,
+    });
+
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new HttpsError("internal", "Claude returned no text response.");
+    }
+
+    let parsed: {
+      name: string;
+      ingredients: { id: string; text: string; sortOrder: number }[];
+      equipment?: { id: string; text: string; sortOrder: number }[];
+      steps: { id: string; text: string; type: string; sortOrder: number; timerSeconds?: number }[];
+    };
+
+    try {
+      parsed = JSON.parse(textBlock.text);
+    } catch {
+      throw new HttpsError("internal", "Could not parse Claude's response as JSON.");
+    }
+
+    if (!parsed.name || !parsed.ingredients?.length || !parsed.steps?.length) {
+      throw new HttpsError("internal", "Claude returned an incomplete recipe.");
+    }
+
+    let ownerName = "Anonymous Baker";
+    try {
+      const userDoc = await db.doc(`users/${uid}`).get();
+      ownerName = userDoc.data()?.displayName || userDoc.data()?.email || ownerName;
+    } catch {
+      // Fall back to default
+    }
+
+    const recipeRef = db.collection("recipes").doc();
+    await recipeRef.set({
+      name: parsed.name,
+      source: source || "Uploaded PDF",
+      ownerId: uid,
+      ownerName,
+      visibility: "private",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      totalBakes: 0,
+      ingredients: parsed.ingredients,
+      equipment: parsed.equipment || [],
+      steps: parsed.steps,
+    });
+
+    return {
+      recipeId: recipeRef.id,
+      name: parsed.name,
+      ingredientCount: parsed.ingredients.length,
+      stepCount: parsed.steps.length,
+    };
   }
 );
 
