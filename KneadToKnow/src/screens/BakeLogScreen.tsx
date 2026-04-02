@@ -19,12 +19,11 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useRecipes } from '../hooks/useRecipes';
-import { useAuth } from '../hooks/useAuth';
 import { StarRating } from '../components/StarRating';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList, BakeLogEntry } from '../types';
