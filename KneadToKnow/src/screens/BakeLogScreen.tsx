@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
 import { useRecipes } from '../hooks/useRecipes';
 import { StarRating } from '../components/StarRating';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
@@ -31,6 +32,7 @@ type RouteType = RouteProp<RecipeStackParamList, 'BakeLog'>;
 
 export function BakeLogScreen() {
   const route = useRoute<RouteType>();
+  const { user } = useAuth();
   const { getRecipe } = useRecipes();
   const recipe = getRecipe(route.params.recipeId);
 
@@ -123,7 +125,7 @@ export function BakeLogScreen() {
         try {
           const response = await fetch(photoUri);
           const blob = await response.blob();
-          const filename = `bake-photos/${route.params.recipeId}/${Date.now()}.jpg`;
+          const filename = `bake-photos/${user!.uid}/${route.params.recipeId}/${Date.now()}.jpg`;
           const storageRef = ref(storage, filename);
           await uploadBytes(storageRef, blob);
           photoUrl = await getDownloadURL(storageRef);
