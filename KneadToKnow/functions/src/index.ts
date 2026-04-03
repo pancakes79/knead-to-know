@@ -307,27 +307,60 @@ export const saveHAConfig = onCall(async (request) => {
   const uid = request.auth.uid;
   const {url, token, entityId} = request.data as {
     url: string;
-    token: string;
+    token?: string;
     entityId: string;
   };
 
-  if (!url || !token || !entityId) {
+  if (!url || !entityId) {
     throw new HttpsError(
       "invalid-argument",
-      "url, token, and entityId are required."
+      "url and entityId are required."
     );
   }
 
-  await fetchHAState(url, token, entityId);
-  await storeSecret(uid, token);
+  console.log(`saveHAConfig: uid=${uid}, hasToken=${!!token}`);
+  if (token) {
+    // Store the new token
+    try {
+      await storeSecret(uid, token);
+      console.log(`saveHAConfig: secret stored`);
+    } catch (err) {
+      console.error(`saveHAConfig: storeSecret failed:`, err);
+      throw new HttpsError("internal", `Failed to store token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    // No new token — verify one exists already so the config won't be broken
+    try {
+      await getSecret(uid);
+      console.log(`saveHAConfig: using existing secret`);
+    } catch {
+      throw new HttpsError(
+        "invalid-argument",
+        "A token is required because no existing token is stored."
+      );
+    }
+  }
 
+  console.log(`saveHAConfig: saving Firestore config`);
   await db.doc(`users/${uid}/config/homeAssistant`).set({
     url,
     entityId,
     updatedAt: new Date(),
   });
+  console.log(`saveHAConfig: Firestore config saved`);
 
-  return {success: true};
+  // Test the connection — report result but don't fail the save
+  try {
+    const tokenToTest = token || await getSecret(uid);
+    const result = await fetchHAState(url, tokenToTest, entityId);
+    return {success: true, tested: true, tempF: result.tempF, sensorName: result.sensorName};
+  } catch (err: unknown) {
+    const msg = err instanceof HttpsError
+      ? err.message
+      : (err instanceof Error ? err.message : "Unknown error");
+    console.log(`saveHAConfig: connection test failed (non-fatal): ${msg}`);
+    return {success: true, tested: false, testError: msg};
+  }
 });
 
 /**
