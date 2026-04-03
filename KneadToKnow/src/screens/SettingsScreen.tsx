@@ -57,18 +57,25 @@ export function SettingsScreen() {
 
     setSaving(true);
     try {
-      await saveHAConfiguration({
+      const result = await saveHAConfiguration({
         url: baseUrl.trim().replace(/\/$/, ''),
         token: token.trim(),
         entityId: entityId.trim(),
       });
       setIsConnected(true);
-      Alert.alert(
-        'Connected!',
-        'Home Assistant is set up. The proofing calculator can now pull your ambient temperature automatically.'
-      );
+      if (result?.tested === false) {
+        Alert.alert(
+          'Saved (Connection Test Failed)',
+          `Your credentials were saved, but the connection test failed: ${result.testError}\n\nThis may be temporary — the proofing calculator will try again when you open it.`
+        );
+      } else {
+        Alert.alert(
+          'Connected!',
+          'Home Assistant is set up. The proofing calculator can now pull your ambient temperature automatically.'
+        );
+      }
     } catch (error: any) {
-      Alert.alert('Connection Failed', error.message || 'Could not connect to Home Assistant.');
+      Alert.alert('Save Failed', error.message || 'Could not save Home Assistant configuration.');
     } finally {
       setSaving(false);
     }

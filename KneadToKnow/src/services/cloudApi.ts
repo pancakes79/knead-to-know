@@ -95,12 +95,13 @@ export async function saveHAConfiguration(config: {
   url: string;
   token: string;
   entityId: string;
-}): Promise<void> {
-  const fn = httpsCallable<typeof config, { success: boolean }>(
+}): Promise<{ success: boolean; tested: boolean; testError?: string; tempF?: number; sensorName?: string }> {
+  const fn = httpsCallable<typeof config, { success: boolean; tested: boolean; testError?: string; tempF?: number; sensorName?: string }>(
     functions,
     'saveHAConfig'
   );
-  await fn(config);
+  const result = await fn(config);
+  return result.data;
 }
 
 // ─── Recipe Sharing ───
