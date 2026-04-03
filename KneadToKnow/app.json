@@ -27,12 +27,9 @@
       "package": "com.loafsloaves.kneadtoknow",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.SCHEDULE_EXACT_ALARM"
       ]
     },
     "plugins": [
@@ -55,6 +52,6 @@
         "projectId": "5d7f8cd4-bb43-46dc-a47a-ff2049454f47"
       }
     },
-    "owner": "craigjennings7979"
+    "owner": "kneadtoknow.support"
   }
 }
