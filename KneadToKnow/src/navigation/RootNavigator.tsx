@@ -32,44 +32,9 @@ import { MFAEnrollScreen } from '../screens/MFAEnrollScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 import { TermsOfServiceScreen } from '../screens/TermsOfServiceScreen';
 
-// ─── Tab Icons ───
+// ─── Navigation Types ───
 
-function TabIcon({ label, color, size }: { label: string; color: string; size: number }) {
-  const icons: Record<string, string> = {
-    Recipes: '📖',
-    Proofing: '🌡',
-    Bake: '🍞',
-    Settings: '⚙',
-    Profile: '👤',
-  };
-  return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      <View style={{
-        fontSize: size * 0.7,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-        <View style={{
-          width: size - 2,
-          height: size - 2,
-          borderRadius: (size - 2) / 2,
-          borderWidth: 1.5,
-          borderColor: color,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: color === colors.amber ? `${colors.cream}` : 'transparent',
-        }}>
-          <View style={{
-            width: size * 0.4,
-            height: size * 0.25,
-            borderRadius: size * 0.12,
-            backgroundColor: color,
-          }} />
-        </View>
-      </View>
-    </View>
-  );
-}
+import { RecipeStackParamList, RootTabParamList } from '../types';
 
 // ─── Recipe Stack ───
 

@@ -69,6 +69,7 @@ export type RootTabParamList = {
   BakeLogTab: undefined;
   ResourcesTab: undefined;
   SettingsTab: undefined;
+  ProfileTab: undefined;
 };
 
 export type RecipeStackParamList = {

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '../hooks/useAuth';
 import { MFAVerifyScreen } from './MFAVerifyScreen';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
