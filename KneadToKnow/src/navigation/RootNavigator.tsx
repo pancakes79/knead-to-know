@@ -299,6 +299,7 @@ function AuthenticatedApp() {
 // ─── Root Navigator — auth gate ───
 
 const AuthStack = createNativeStackNavigator();
+const VerifyStack = createNativeStackNavigator();
 
 export function RootNavigator() {
   const { user, loading } = useAuth();
@@ -322,9 +323,13 @@ export function RootNavigator() {
   }
 
   // Authenticated but email not verified (email/password users only)
-  // Google OAuth users always have emailVerified = true
-  if (!user.emailVerified) {
-    return <EmailVerificationScreen />;
+  // We add "user &&" to satisfy TypeScript that user is definitely not null here
+  if (user && !user.emailVerified) {
+    return (
+      <VerifyStack.Navigator screenOptions={{ headerShown: false }}>
+        <VerifyStack.Screen name="VerifyEmail" component={EmailVerificationScreen} />
+      </VerifyStack.Navigator>
+    );
   }
 
   // Authenticated and verified — show the app

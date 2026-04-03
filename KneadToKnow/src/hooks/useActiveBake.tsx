@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface ActiveBake {
   id: string;
@@ -31,6 +32,32 @@ let nextBakeId = 1;
 export function ActiveBakeProvider({ children }: { children: React.ReactNode }) {
   const [activeBakes, setActiveBakes] = useState<ActiveBake[]>([]);
   const [selectedBakeId, setSelectedBakeId] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false); // To prevent flashing empty state
+
+  // 1. Load saved bakes on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@kneadtoknow_active_bakes').then((data) => {
+      if (data) {
+        // Note: JSON.parse converts dates to strings, so we map them back to Date objects
+        const parsed = JSON.parse(data).map((b: any) => ({
+          ...b,
+          startedAt: new Date(b.startedAt)
+        }));
+        setActiveBakes(parsed);
+      
+        // Auto-select the first one if it exists
+        if (parsed.length > 0) setSelectedBakeId(parsed[0].id);
+      }
+      setIsHydrated(true);
+    });
+  }, []);
+
+  // 2. Save bakes whenever they change (only after initial load)
+  useEffect(() => {
+    if (isHydrated) {
+      AsyncStorage.setItem('@kneadtoknow_active_bakes', JSON.stringify(activeBakes));
+    }
+  }, [activeBakes, isHydrated]);
 
   const selectedBake = activeBakes.find((b) => b.id === selectedBakeId) || null;
 

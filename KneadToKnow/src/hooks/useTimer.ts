@@ -8,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -43,48 +45,56 @@ export function useTimer({
   const notificationIdRef = useRef<string | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const remainingRef = useRef(remaining);
+  const isRunningRef = useRef(isRunning);
+  const labelRef = useRef(label);
 
   // Request notification permissions on first use
   useEffect(() => {
     Notifications.requestPermissionsAsync();
   }, []);
 
+    // Keep refs synced with state
+  useEffect(() => { remainingRef.current = remaining; }, [remaining]);
+  useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+  useEffect(() => { labelRef.current = label; }, [label]);
+
   // Handle app going to background — schedule notification
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (state: AppStateStatus) => {
-      if (state === 'background' && isRunning && remaining > 0) {
-        // Schedule a notification for when the timer completes
+      if (state === 'background' && isRunningRef.current && remainingRef.current > 0) {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
             title: '🍞 Knead to Know',
-            body: `${label} — Timer complete!`,
+            body: `${labelRef.current} — Timer complete!`,
             sound: true,
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: remaining,
+            seconds: remainingRef.current,
           },
         });
         notificationIdRef.current = id;
-        setEndTime(Date.now() + remaining * 1000);
-      } else if (state === 'active' && endTime) {
-        // Cancel the notification and sync the timer
-        if (notificationIdRef.current) {
-          await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
-          notificationIdRef.current = null;
-        }
-        const newRemaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
-        setRemaining(newRemaining);
-        setEndTime(null);
-        if (newRemaining <= 0) {
-          setIsRunning(false);
-          onCompleteRef.current?.();
+        // Use standard variable, no need for React state here
+        intervalRef.current = Date.now() + remainingRef.current * 1000 as any; 
+      } else if (state === 'active' && notificationIdRef.current) {
+        await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
+        notificationIdRef.current = null;
+      
+        const expectedEndTime = intervalRef.current as unknown as number;
+        if (expectedEndTime) {
+          const newRemaining = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
+          setRemaining(newRemaining);
+          if (newRemaining <= 0) {
+            setIsRunning(false);
+            onCompleteRef.current?.();
+          }
         }
       }
     });
 
-    return () => subscription.remove();
-  }, [isRunning, remaining, endTime, label]);
+  return () => subscription.remove();
+}, []); // <-- Empty dependency array!
 
   // Core timer interval
   useEffect(() => {
