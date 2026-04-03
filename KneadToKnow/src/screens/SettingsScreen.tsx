@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { saveHAConfiguration, getHATemperature, deleteAccount as deleteAccountServer } from '../services/cloudApi';
 import { useAuth } from '../hooks/useAuth';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
@@ -31,27 +33,48 @@ export function SettingsScreen() {
   const [token, setToken] = useState('');
   const [entityId, setEntityId] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [hasStoredToken, setHasStoredToken] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Check if HA is already configured on mount
+  // Load existing HA config and connection status on mount
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
+
+    // Load saved URL + entityId from Firestore so the form shows existing config
+    getDoc(doc(db, 'users', user.uid, 'config', 'homeAssistant'))
+      .then((snapshot) => {
+        if (!cancelled && snapshot.exists()) {
+          const data = snapshot.data() as { url?: string; entityId?: string };
+          if (data.url) setBaseUrl(data.url);
+          if (data.entityId) setEntityId(data.entityId);
+          setHasStoredToken(true);
+          setTempSource('homeassistant');
+        }
+      })
+      .catch(() => {/* no config saved yet */});
+
+    // Check if the live connection works
     getHATemperature()
       .then((result) => {
         if (!cancelled && result.tempF) {
-          setTempSource('homeassistant');
           setIsConnected(true);
         }
       })
       .catch(() => {
-        // Not configured — stay on defaults
+        // Token missing or HA unreachable — still show any saved config fields
       });
+
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   const handleSaveHA = useCallback(async () => {
-    if (!baseUrl.trim() || !token.trim() || !entityId.trim()) {
-      Alert.alert('Missing Info', 'Please fill in all three fields.');
+    if (!baseUrl.trim() || !entityId.trim()) {
+      Alert.alert('Missing Info', 'Please fill in the URL and entity ID fields.');
+      return;
+    }
+    if (!token.trim() && !hasStoredToken) {
+      Alert.alert('Missing Info', 'Please enter your Home Assistant long-lived access token.');
       return;
     }
 
@@ -59,7 +82,7 @@ export function SettingsScreen() {
     try {
       const result = await saveHAConfiguration({
         url: baseUrl.trim().replace(/\/$/, ''),
-        token: token.trim(),
+        token: token.trim() || undefined,
         entityId: entityId.trim(),
       });
       setIsConnected(true);
@@ -294,7 +317,7 @@ export function SettingsScreen() {
             <Text style={[styles.label, { marginTop: spacing.lg }]}>Long-Lived Access Token</Text>
             <TextInput
               style={[styles.input, { fontFamily: fonts.mono, fontSize: 12 }]}
-              placeholder="eyJhbGciOi..."
+              placeholder={hasStoredToken ? 'Stored securely — enter new token to update' : 'eyJhbGciOi...'}
               placeholderTextColor={colors.textMuted}
               value={token}
               onChangeText={setToken}

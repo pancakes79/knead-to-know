@@ -18,9 +18,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId;
 
-      // Private subcollection (HA config, etc.) — owner only
-      // Cloud Functions use Admin SDK and bypass these rules,
-      // but this prevents any client-side access to secrets.
+      // Config subcollection (HA url/entityId, non-secret fields) — owner read-only.
+      // Writes happen via Cloud Functions (Admin SDK) to prevent tampering.
+      match /config/{docId} {
+        allow read: if request.auth.uid == userId;
+      }
+
+      // Private subcollection — owner only
       match /private/{docId} {
         allow read, write: if request.auth.uid == userId;
       }
