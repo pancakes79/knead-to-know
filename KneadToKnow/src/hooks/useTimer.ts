@@ -41,13 +41,21 @@ export function useTimer({
   const [remaining, setRemaining] = useState(totalSeconds);
   const [isRunning, setIsRunning] = useState(autoStart);
   const [endTime, setEndTime] = useState<number | null>(null);
+  
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notificationIdRef = useRef<string | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+
+  const backgroundEndTimeRef = useRef<number | null>(null);
   const remainingRef = useRef(remaining);
   const isRunningRef = useRef(isRunning);
   const labelRef = useRef(label);
+
+  // Keep refs synced with state
+  useEffect(() => { remainingRef.current = remaining; }, [remaining]);
+  useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+  useEffect(() => { labelRef.current = label; }, [label]);
 
   // Request notification permissions on first use
   useEffect(() => {
@@ -76,15 +84,16 @@ export function useTimer({
         });
         notificationIdRef.current = id;
         // Use standard variable, no need for React state here
-        intervalRef.current = Date.now() + remainingRef.current * 1000 as any; 
+        backgroundEndTimeRef.current = Date.now() + remainingRef.current * 1000; 
       } else if (state === 'active' && notificationIdRef.current) {
         await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
         notificationIdRef.current = null;
       
-        const expectedEndTime = intervalRef.current as unknown as number;
+        const expectedEndTime = backgroundEndTimeRef.current;
         if (expectedEndTime) {
           const newRemaining = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
           setRemaining(newRemaining);
+          backgroundEndTimeRef.current = null; // reset it
           if (newRemaining <= 0) {
             setIsRunning(false);
             onCompleteRef.current?.();

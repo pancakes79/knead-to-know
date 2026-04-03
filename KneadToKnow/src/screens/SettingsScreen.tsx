@@ -48,7 +48,6 @@ export function SettingsScreen() {
     if (!user) return;
     let cancelled = false;
 
-    // Load saved URL + entityId from Firestore so the form shows existing config
     getDoc(doc(db, 'users', user.uid, 'config', 'homeAssistant'))
       .then((snapshot) => {
         if (!cancelled && snapshot.exists()) {
@@ -57,20 +56,16 @@ export function SettingsScreen() {
           if (data.entityId) setEntityId(data.entityId);
           setHasStoredToken(true);
           setTempSource('homeassistant');
-        }
-      })
-      .catch(() => {/* no config saved yet */});
 
-    // Check if the live connection works
-    getHATemperature()
-      .then((result) => {
-        if (!cancelled && result.tempF) {
-          setIsConnected(true);
+          // ONLY fire the Cloud Function if we know they have HA configured
+          getHATemperature()
+            .then((result) => {
+              if (!cancelled && result.tempF) setIsConnected(true);
+            })
+            .catch(() => {});
         }
       })
-      .catch(() => {
-        // Token missing or HA unreachable — still show any saved config fields
-      });
+      .catch(() => {});
 
     return () => { cancelled = true; };
   }, [user]);

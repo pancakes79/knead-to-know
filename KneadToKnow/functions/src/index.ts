@@ -757,7 +757,7 @@ export const deleteUserAccount = onCall(async (request) => {
   const uid = request.auth.uid;
 
   // 1. Delete all user's bake logs
-  const bakesSnap = await db.collection("bakeLogs")
+  const bakesSnap = await db.collection("bakes")
     .where("ownerId", "==", uid).get();
   const bakeDeletes = bakesSnap.docs.map((doc) => doc.ref.delete());
   await Promise.all(bakeDeletes);
