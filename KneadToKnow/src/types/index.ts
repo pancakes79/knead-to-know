@@ -53,6 +53,7 @@ export type RootTabParamList = {
   ProofingTab: undefined;
   ActiveBakeTab: undefined;
   SettingsTab: undefined;
+  ProfileTab: undefined;
 };
 
 export type RecipeStackParamList = {

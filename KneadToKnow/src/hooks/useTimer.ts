@@ -41,6 +41,8 @@ export function useTimer({
   const [endTime, setEndTime] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notificationIdRef = useRef<string | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   // Request notification permissions on first use
   useEffect(() => {
@@ -76,13 +78,13 @@ export function useTimer({
         setEndTime(null);
         if (newRemaining <= 0) {
           setIsRunning(false);
-          onComplete?.();
+          onCompleteRef.current?.();
         }
       }
     });
 
     return () => subscription.remove();
-  }, [isRunning, remaining, endTime, label, onComplete]);
+  }, [isRunning, remaining, endTime, label]);
 
   // Core timer interval
   useEffect(() => {
@@ -92,7 +94,7 @@ export function useTimer({
           if (r <= 1) {
             if (intervalRef.current) clearInterval(intervalRef.current);
             setIsRunning(false);
-            onComplete?.();
+            onCompleteRef.current?.();
             return 0;
           }
           return r - 1;

@@ -5,10 +5,8 @@
  * No API keys or third-party credentials in the client app.
  */
 
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app } from '../config/firebase';
-
-const functions = getFunctions(app);
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../config/firebase';
 
 // ─── Types ───
 

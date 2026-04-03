@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getFunctions } from 'firebase/functions';
 import { initializeAuth } from 'firebase/auth';
 // @ts-ignore — React Native persistence export varies by Firebase version
 import { getReactNativePersistence } from 'firebase/auth';

@@ -9,7 +9,6 @@ import {
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useRecipes } from '../hooks/useRecipes';
 import { StretchFoldTracker } from '../components/StretchFoldTracker';
-import { CountdownTimer } from '../components/CountdownTimer';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
 

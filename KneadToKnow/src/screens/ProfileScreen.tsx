@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 export function ProfileScreen() {
-  const { user, signOut, deleteAccount } = useAuth();
+  const { user, signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
   const handleSignOut = useCallback(() => {
@@ -46,7 +46,7 @@ export function ProfileScreen() {
         },
       ]
     );
-  }, [deleteAccount]);
+  }, []);
 
   if (!user) return null;
 

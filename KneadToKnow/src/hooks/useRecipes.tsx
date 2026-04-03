@@ -83,7 +83,7 @@ const RecipeContext = createContext<RecipeContextValue | null>(null);
 export function RecipeProvider({ children }: { children: React.ReactNode }) {
   const [recipes, setRecipes] = useState<Recipe[]>(SAMPLE_RECIPES);
   const [loading, setLoading] = useState(false);
-  const [useFirebase, setUseFirebase] = useState(false);
+  const useFirebaseRef = React.useRef(false);
 
   // Try to connect to Firestore — fall back to sample data if not configured
   useEffect(() => {
@@ -98,9 +98,9 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
             createdAt: doc.data().createdAt?.toDate() || new Date(),
           })) as Recipe[];
 
-          if (firebaseRecipes.length > 0 || useFirebase) {
+          if (firebaseRecipes.length > 0 || useFirebaseRef.current) {
             setRecipes(firebaseRecipes);
-            setUseFirebase(true);
+            useFirebaseRef.current = true;
           }
           setLoading(false);
         },
@@ -117,7 +117,7 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt'>) => {
-    if (useFirebase) {
+    if (useFirebaseRef.current) {
       const docRef = await addDoc(collection(db, 'recipes'), {
         ...recipe,
         createdAt: serverTimestamp(),
@@ -133,25 +133,25 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
       setRecipes((prev) => [newRecipe, ...prev]);
       return newRecipe.id;
     }
-  }, [useFirebase]);
+  }, []);
 
   const updateRecipe = useCallback(async (id: string, updates: Partial<Recipe>) => {
-    if (useFirebase) {
+    if (useFirebaseRef.current) {
       await updateDoc(doc(db, 'recipes', id), updates);
     } else {
       setRecipes((prev) =>
         prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
       );
     }
-  }, [useFirebase]);
+  }, []);
 
   const deleteRecipe = useCallback(async (id: string) => {
-    if (useFirebase) {
+    if (useFirebaseRef.current) {
       await deleteDoc(doc(db, 'recipes', id));
     } else {
       setRecipes((prev) => prev.filter((r) => r.id !== id));
     }
-  }, [useFirebase]);
+  }, []);
 
   const getRecipe = useCallback(
     (id: string) => recipes.find((r) => r.id === id),
