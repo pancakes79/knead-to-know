@@ -22,8 +22,15 @@ type TempSource = 'manual' | 'homeassistant';
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { user, signOut, isMFAEnrolled, disableMFA } = useAuth();
+  const { user, signOut, isMFAEnrolled, disableMFA, changePassword } = useAuth();
   const [deleting, setDeleting] = useState(false);
+
+  // Change password
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [changingPw, setChangingPw] = useState(false);
 
   // Temperature source
   const [tempSource, setTempSource] = useState<TempSource>('manual');
@@ -133,6 +140,44 @@ export function SettingsScreen() {
       ]
     );
   }, []);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!currentPw.trim()) {
+      Alert.alert('Missing Field', 'Please enter your current password.');
+      return;
+    }
+    if (newPw.length < 6) {
+      Alert.alert('Weak Password', 'New password must be at least 6 characters.');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      Alert.alert('Mismatch', 'New passwords do not match.');
+      return;
+    }
+    setChangingPw(true);
+    try {
+      await changePassword(currentPw, newPw);
+      Alert.alert('Password Changed', 'Your password has been updated.');
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+      setShowChangePassword(false);
+    } catch (error: any) {
+      const code = error.code;
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        Alert.alert('Incorrect Password', 'The current password you entered is wrong.');
+      } else if (code === 'auth/too-many-requests') {
+        Alert.alert('Too Many Attempts', 'Please wait a few minutes and try again.');
+      } else {
+        Alert.alert('Error', error.message || 'Could not change password.');
+      }
+    } finally {
+      setChangingPw(false);
+    }
+  }, [currentPw, newPw, confirmPw, changePassword]);
+
+  // Check if user signed in with email/password (vs Google OAuth)
+  const isEmailUser = !!user?.email && !user?.photoURL;
 
   if (!user) return null;
 
@@ -251,7 +296,68 @@ export function SettingsScreen() {
               <Text style={styles.actionChevron}>›</Text>
             </TouchableOpacity>
           )}
+
+          {/* Change Password — only for email/password users */}
+          {isEmailUser && (
+            <TouchableOpacity
+              style={[styles.actionRow, styles.actionRowLast, { borderTopWidth: 0.5, borderTopColor: colors.border }]}
+              onPress={() => setShowChangePassword(!showChangePassword)}
+            >
+              <Text style={styles.actionText}>Change Password</Text>
+              <Text style={styles.actionChevron}>{showChangePassword ? '‹' : '›'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Change Password Form */}
+        {showChangePassword && isEmailUser && (
+          <View style={[styles.haConfig, { marginTop: spacing.md }]}>
+            <Text style={styles.label}>Current Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter current password"
+              placeholderTextColor={colors.textMuted}
+              value={currentPw}
+              onChangeText={setCurrentPw}
+              secureTextEntry
+              autoComplete="current-password"
+            />
+
+            <Text style={[styles.label, { marginTop: spacing.lg }]}>New Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="At least 6 characters"
+              placeholderTextColor={colors.textMuted}
+              value={newPw}
+              onChangeText={setNewPw}
+              secureTextEntry
+              autoComplete="new-password"
+            />
+
+            <Text style={[styles.label, { marginTop: spacing.lg }]}>Confirm New Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Re-enter new password"
+              placeholderTextColor={colors.textMuted}
+              value={confirmPw}
+              onChangeText={setConfirmPw}
+              secureTextEntry
+              autoComplete="new-password"
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, changingPw && styles.saveButtonDisabled]}
+              onPress={handleChangePassword}
+              disabled={changingPw}
+            >
+              {changingPw ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.saveButtonText}>Update Password</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* ── Temperature Source Section ── */}

@@ -22,13 +22,14 @@ WebBrowser.maybeCompleteAuthSession();
 type AuthMode = 'sign_in' | 'sign_up';
 
 export function SignInScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, mfaResolver, clearMFAResolver } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword, mfaResolver, clearMFAResolver } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
 
   // ─── Google Auth Setup ───
   const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
@@ -73,6 +74,33 @@ export function SignInScreen() {
       Alert.alert('Authentication Error', msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ─── Forgot Password ───
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('Enter Email', 'Please enter your email address first, then tap "Forgot Password?"');
+      return;
+    }
+    setResetSending(true);
+    try {
+      await resetPassword(email.trim());
+      Alert.alert('Reset Email Sent', 'Check your inbox for a password reset link. It may take a minute to arrive.');
+    } catch (error: any) {
+      const code = error.code;
+      if (code === 'auth/user-not-found') {
+        Alert.alert('Not Found', 'No account found with that email address.');
+      } else if (code === 'auth/invalid-email') {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      } else if (code === 'auth/too-many-requests') {
+        Alert.alert('Too Many Requests', 'Please wait a few minutes before trying again.');
+      } else {
+        Alert.alert('Error', error.message || 'Could not send reset email.');
+      }
+    } finally {
+      setResetSending(false);
     }
   };
 
@@ -206,6 +234,18 @@ export function SignInScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {mode === 'sign_in' && (
+            <TouchableOpacity
+              style={styles.forgotRow}
+              onPress={handleForgotPassword}
+              disabled={resetSending}
+            >
+              <Text style={styles.forgotText}>
+                {resetSending ? 'Sending...' : 'Forgot Password?'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Toggle Mode ── */}
@@ -325,6 +365,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 16,
     color: '#fff',
+  },
+  forgotRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  forgotText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.amber,
   },
   toggleRow: {
     flexDirection: 'row',

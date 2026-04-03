@@ -7,8 +7,12 @@ import {
   signInWithCredential,
   GoogleAuthProvider,
   updateProfile,
+  updatePassword,
   deleteUser,
   sendEmailVerification,
+  sendPasswordResetEmail,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   multiFactor,
   getMultiFactorResolver,
   MultiFactorResolver,
@@ -42,6 +46,8 @@ interface AuthContextValue {
   disableMFA: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -158,6 +164,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsMFAEnrolled(enrolledFactors.length > 0);
   }, []);
 
+  // ─── Password Management ───
+
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) throw new Error('Not signed in with email');
+    // Re-authenticate before changing password
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
+  }, []);
+
   // ─── MFA ───
 
   const clearMFAResolver = useCallback(() => {
@@ -244,6 +265,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         disableMFA,
         resendVerificationEmail,
         refreshUser,
+        resetPassword,
+        changePassword,
       }}
     >
       {children}
