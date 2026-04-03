@@ -96,11 +96,29 @@ function BakeDetail({
   showBackButton: boolean;
 }) {
   const { getRecipe } = useRecipes();
-  const { toggleIngredient, toggleEquipment, toggleStep, setLoafCount } = useActiveBake();
+  const { toggleIngredient, toggleEquipment, toggleStep, setLoafCount, endBake } = useActiveBake();
   const [activeTab, setActiveTab] = useState<ActiveTab>('ingredients');
 
   const recipe = getRecipe(bake.recipeId);
-  if (!recipe) return null;
+  if (!recipe) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyTitle}>Recipe Not Found</Text>
+        <Text style={styles.emptyText}>
+          The original recipe for this bake has been deleted or is unavailable.
+        </Text>
+        <TouchableOpacity
+          style={[styles.finishButton, { marginTop: spacing.xl, paddingHorizontal: spacing.xl }]}
+          onPress={() => {
+            endBake(bake.id);
+            onBack(); 
+          }}
+        >
+          <Text style={styles.finishButtonText}>Remove Active Bake</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const ingredientChecks = bake.ingredientChecks;
   const equipmentChecks = bake.equipmentChecks;
@@ -254,9 +272,7 @@ function BakeDetail({
               }
 
               // Get timer duration: prefer stored value, fall back to parsing text
-              const timerSecs = step.type !== 'stretch_folds'
-                ? (step.timerSeconds || parseDuration(step.text))
-                : null;
+              const timerSecs = step.timerSeconds || parseDuration(step.text);
 
               if (step.type === 'proof') {
                 return (
