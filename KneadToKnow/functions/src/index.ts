@@ -15,8 +15,6 @@ const SERVICE_ACCOUNT =
 setGlobalOptions({
   maxInstances: 10,
   serviceAccount: SERVICE_ACCOUNT,
-  // Require App Check — rejects requests not from the real app
-  enforceAppCheck: true,
 });
 
 const db = getFirestore();
