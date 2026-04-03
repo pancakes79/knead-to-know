@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { saveHAConfiguration, deleteAccount as deleteAccountServer } from '../services/cloudApi';
+import { saveHAConfiguration, getHATemperature, deleteAccount as deleteAccountServer } from '../services/cloudApi';
 import { useAuth } from '../hooks/useAuth';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
@@ -32,6 +32,22 @@ export function SettingsScreen() {
   const [entityId, setEntityId] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Check if HA is already configured on mount
+  useEffect(() => {
+    let cancelled = false;
+    getHATemperature()
+      .then((result) => {
+        if (!cancelled && result.tempF) {
+          setTempSource('homeassistant');
+          setIsConnected(true);
+        }
+      })
+      .catch(() => {
+        // Not configured — stay on defaults
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSaveHA = useCallback(async () => {
     if (!baseUrl.trim() || !token.trim() || !entityId.trim()) {

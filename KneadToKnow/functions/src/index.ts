@@ -100,12 +100,22 @@ async function fetchHAState(
   token: string,
   entityId: string
 ): Promise<{tempF: number; sensorName: string; unit: string}> {
-  const response = await fetch(`${url}/api/states/${entityId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${url}/api/states/${entityId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new HttpsError(
+      "unavailable",
+      `Could not connect to Home Assistant at ${url}: ${msg}`
+    );
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -417,7 +427,8 @@ export const importRecipeFromUrl = onCall(async (request) => {
 });
 
 /**
- * Import a recipe from PDF text content.
+ * Import a recipe from a PDF file (sent as base64).
+ * Uses Claude's document support to extract recipe content.
  */
 export const importRecipeFromPdf = onCall(async (request) => {
   if (!request.auth) {
@@ -425,19 +436,60 @@ export const importRecipeFromPdf = onCall(async (request) => {
   }
 
   const uid = request.auth.uid;
-  const {content, filename} = request.data as {
-    content: string;
-    filename?: string;
+  const {pdfBase64, source} = request.data as {
+    pdfBase64: string;
+    source?: string;
   };
 
-  if (!content || !content.trim()) {
+  if (!pdfBase64 || !pdfBase64.trim()) {
     throw new HttpsError("invalid-argument", "PDF content is required.");
   }
 
   await checkRateLimit(uid, 10);
 
-  const parsed = await parseRecipeWithClaude(content);
-  return await saveImportedRecipe(uid, parsed, filename || "Uploaded PDF");
+  const client = getAnthropicClient();
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    messages: [{
+      role: "user",
+      content: [
+        {
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: pdfBase64,
+          },
+        },
+        {
+          type: "text",
+          text: RECIPE_PARSE_PROMPT,
+        },
+      ],
+    }],
+  });
+
+  const text = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ||
+    text.match(/(\{[\s\S]*\})/);
+  if (!jsonMatch) {
+    throw new HttpsError("internal", "Failed to parse recipe from AI response.");
+  }
+
+  let parsed: ParsedRecipe;
+  try {
+    parsed = JSON.parse(jsonMatch[1]) as ParsedRecipe;
+  } catch {
+    throw new HttpsError("internal", "AI returned invalid JSON.");
+  }
+
+  return await saveImportedRecipe(uid, parsed, source || "Uploaded PDF");
 });
 
 // ─── Recipe Sharing ───
