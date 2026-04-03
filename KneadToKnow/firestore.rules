@@ -32,15 +32,19 @@ service cloud.firestore {
 
     // ─── Recipes Collection ───
     match /recipes/{recipeId} {
-      // Owner can read their own; anyone authenticated can read shared
       allow read: if request.auth != null
                   && (resource.data.ownerId == request.auth.uid
                       || resource.data.visibility == 'shared');
+      
       allow create: if request.auth != null
                     && request.resource.data.ownerId == request.auth.uid
                     && isValidRecipe();
+                    
+      // NEW: Ensure the ownerId cannot be mutated during an update
       allow update: if resource.data.ownerId == request.auth.uid
+                    && request.resource.data.ownerId == resource.data.ownerId 
                     && isValidRecipe();
+                    
       allow delete: if resource.data.ownerId == request.auth.uid;
     }
 

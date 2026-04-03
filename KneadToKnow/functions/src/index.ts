@@ -9,8 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 initializeApp();
 
-const SERVICE_ACCOUNT =
-  "knead-to-know-fn@kneadtoknow-c4913.iam.gserviceaccount.com";
+const SERVICE_ACCOUNT = process.env.SERVICE_ACCOUNT_EMAIL;
 
 setGlobalOptions({
   maxInstances: 10,
@@ -569,22 +568,35 @@ export const importRecipe = onCall(async (request) => {
  * Import a recipe from a URL. Fetches the page, strips HTML, parses with Claude.
  */
 export const importRecipeFromUrl = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Must be signed in.");
-  }
-
+  if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in.");
+  
   const uid = request.auth.uid;
   const {url} = request.data as {url: string};
 
-  if (!url || !url.trim()) {
-    throw new HttpsError("invalid-argument", "URL is required.");
-  }
+  if (!url || !url.trim()) throw new HttpsError("invalid-argument", "URL is required.");
 
-  // Block non-HTTP(S) URLs (prevent SSRF against internal services)
   const trimmedUrl = url.trim();
   if (!/^https?:\/\//i.test(trimmedUrl)) {
     throw new HttpsError("invalid-argument", "Only HTTP and HTTPS URLs are supported.");
   }
+
+  // --- NEW: SSRF Protection Block ---
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const hostname = parsedUrl.hostname;
+
+    const isLocalHost = hostname === 'localhost' || hostname.endsWith('.local');
+    const isLoopback = /^127\.\d+\.\d+\.\d+$/.test(hostname) || hostname === '::1';
+    const isMetadata = hostname === '169.254.169.254';
+    const isPrivateIP = /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/.test(hostname);
+
+    if (isLocalHost || isLoopback || isMetadata || isPrivateIP) {
+      throw new Error("Internal restricted IP");
+    }
+  } catch (err) {
+    throw new HttpsError("invalid-argument", "Invalid or restricted URL provided.");
+  }
+  // ----------------------------------
 
   await checkRateLimit(uid, 10);
   await checkSpendLimit(uid);
@@ -628,9 +640,7 @@ export const importRecipeFromUrl = onCall(async (request) => {
  * Uses Claude's document support to extract recipe content.
  */
 export const importRecipeFromPdf = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Must be signed in.");
-  }
+  if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in.");
 
   const uid = request.auth.uid;
   const {pdfBase64, source} = request.data as {
@@ -645,6 +655,15 @@ export const importRecipeFromPdf = onCall(async (request) => {
   if (pdfBase64.length > MAX_PDF_BASE64_LENGTH) {
     throw new HttpsError("invalid-argument", "PDF is too large. Maximum size is about 4 MB.");
   }
+
+  // --- NEW: Validate Base64 formatting ---
+  // Removes whitespace/newlines and checks if it's valid base64
+  const cleanBase64 = pdfBase64.replace(/\s/g, '');
+  const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  if (!base64Regex.test(cleanBase64)) {
+    throw new HttpsError("invalid-argument", "Payload is not a valid Base64 encoded document.");
+  }
+  // ---------------------------------------
 
   await checkRateLimit(uid, 10);
   await checkSpendLimit(uid);

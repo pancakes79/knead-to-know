@@ -21,6 +21,7 @@ import {
 import { doc, setDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { ref, listAll, deleteObject } from 'firebase/storage';
 import { auth, db, storage } from '../config/firebase';
+import { deleteAccount as apiDeleteAccount } from '../services/cloudApi';
 
 // ─── Types ───
 
@@ -206,48 +207,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ─── Delete Account (required for app store) ───
 
   const deleteAccount = useCallback(async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error('Not signed in');
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Not signed in');
 
-    const uid = currentUser.uid;
+  try {
+    // 1. Call the Cloud Function which handles all DB, Storage, Secret, and Auth cleanup atomically
+    await apiDeleteAccount();
 
-    try {
-      // 1. Delete all user's bake logs
-      const bakesQuery = query(collection(db, 'bakes'), where('ownerId', '==', uid));
-      const bakesSnap = await getDocs(bakesQuery);
-      const bakeDeletes = bakesSnap.docs.map((d) => deleteDoc(d.ref));
-      await Promise.all(bakeDeletes);
+    // 2. Clear local state
+    setMfaResolver(null);
+    await firebaseSignOut(auth);
 
-      // 2. Delete all user's recipes
-      const recipesQuery = query(collection(db, 'recipes'), where('ownerId', '==', uid));
-      const recipesSnap = await getDocs(recipesQuery);
-      const recipeDeletes = recipesSnap.docs.map((d) => deleteDoc(d.ref));
-      await Promise.all(recipeDeletes);
-
-      // 3. Delete user's photos from Storage
-      try {
-        const photosRef = ref(storage, `bake-photos/${uid}`);
-        const photosList = await listAll(photosRef);
-        const photoDeletes = photosList.items.map((item) => deleteObject(item));
-        await Promise.all(photoDeletes);
-      } catch {
-        // No photos folder — that's fine
-      }
-
-      // 4. Delete user document
-      await deleteDoc(doc(db, 'users', uid));
-
-      // 5. Delete Firebase Auth account (must be last)
-      await deleteUser(currentUser);
-    } catch (error: any) {
-      // If the auth deletion fails due to requiring re-authentication,
-      // we still deleted the data — the auth account will be cleaned up
-      if (error.code === 'auth/requires-recent-login') {
-        throw new Error('For security, please sign out and sign back in, then try deleting again.');
-      }
-      throw error;
+  } catch (error: any) {
+    if (error.code === 'auth/requires-recent-login' || error.message?.includes('recent-login')) {
+      throw new Error('For security, please sign out and sign back in, then try deleting again.');
     }
-  }, []);
+    throw new Error(error.message || 'Failed to delete account.');
+  }
+}, []);
 
   return (
     <AuthContext.Provider
