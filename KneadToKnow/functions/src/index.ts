@@ -100,12 +100,22 @@ async function fetchHAState(
   token: string,
   entityId: string
 ): Promise<{tempF: number; sensorName: string; unit: string}> {
-  const response = await fetch(`${url}/api/states/${entityId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${url}/api/states/${entityId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new HttpsError(
+      "unavailable",
+      `Could not connect to Home Assistant at ${url}: ${msg}`
+    );
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
