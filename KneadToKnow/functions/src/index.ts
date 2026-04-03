@@ -318,16 +318,24 @@ export const saveHAConfig = onCall(async (request) => {
     );
   }
 
-  await fetchHAState(url, token, entityId);
+  // Save config first so credentials are never lost due to network flakiness
   await storeSecret(uid, token);
-
   await db.doc(`users/${uid}/config/homeAssistant`).set({
     url,
     entityId,
     updatedAt: new Date(),
   });
 
-  return {success: true};
+  // Test the connection — report result but don't fail the save
+  try {
+    const result = await fetchHAState(url, token, entityId);
+    return {success: true, tested: true, tempF: result.tempF, sensorName: result.sensorName};
+  } catch (err: unknown) {
+    const msg = err instanceof HttpsError
+      ? err.message
+      : (err instanceof Error ? err.message : "Unknown error");
+    return {success: true, tested: false, testError: msg};
+  }
 });
 
 /**
