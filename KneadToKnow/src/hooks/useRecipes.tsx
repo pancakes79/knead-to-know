@@ -31,76 +31,103 @@ interface RecipeContextValue {
 const RecipeContext = createContext<RecipeContextValue | null>(null);
 
 export function RecipeProvider({ children }: { children: React.ReactNode }) {
-  const [recipes, setRecipes] = useState<Recipe[]>(SAMPLE_RECIPES);
-  const [loading, setLoading] = useState(false);
-  const useFirebaseRef = React.useRef(false);
+  const { user } = useAuth();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [communityRecipes, setCommunityRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Listen for the current user's recipes
   useEffect(() => {
-    try {
-      const q = query(collection(db, 'recipes'), orderBy('createdAt', 'desc'));
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const firebaseRecipes = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate() || new Date(),
-          })) as Recipe[];
-
-          if (firebaseRecipes.length > 0 || useFirebaseRef.current) {
-            setRecipes(firebaseRecipes);
-            useFirebaseRef.current = true;
-          }
-          setLoading(false);
-        },
-        (error) => {
-          console.log('Firestore not configured, using sample data:', error.message);
-          setLoading(false);
-        }
-      );
-      return unsubscribe;
-    } catch (e) {
-      console.log('Firebase not initialized, using sample data');
+    if (!user) {
+      setRecipes([]);
+      setCommunityRecipes([]);
       setLoading(false);
       return;
     }
 
-  const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt'>) => {
-    if (useFirebaseRef.current) {
-      const docRef = await addDoc(collection(db, 'recipes'), {
-        ...recipe,
-        createdAt: serverTimestamp(),
-      });
-      return docRef.id;
-    } else {
-      // Local mode
-      const newRecipe: Recipe = {
-        ...recipe,
-        id: `local-${Date.now()}`,
-        createdAt: new Date(),
-      };
-      setRecipes((prev) => [newRecipe, ...prev]);
-      return newRecipe.id;
-    }
-  }, []);
+    setLoading(true);
+
+    const myQuery = query(
+      collection(db, 'recipes'),
+      where('ownerId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      myQuery,
+      (snapshot) => {
+        const myRecipes = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.toDate() || new Date(),
+          updatedAt: d.data().updatedAt?.toDate() || undefined,
+        })) as Recipe[];
+        setRecipes(myRecipes);
+        setLoading(false);
+      },
+      (error) => {
+        console.log('Firestore error (my recipes):', error.message);
+        setLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  // Listen for community (shared) recipes
+  useEffect(() => {
+    if (!user) return;
+
+    const communityQuery = query(
+      collection(db, 'recipes'),
+      where('visibility', '==', 'shared'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      communityQuery,
+      (snapshot) => {
+        const shared = snapshot.docs
+          .map((d) => ({
+            id: d.id,
+            ...d.data(),
+            createdAt: d.data().createdAt?.toDate() || new Date(),
+            updatedAt: d.data().updatedAt?.toDate() || undefined,
+          })) as Recipe[];
+        // Exclude own recipes from community list
+        setCommunityRecipes(shared.filter((r) => r.ownerId !== user.uid));
+      },
+      (error) => {
+        console.log('Firestore error (community recipes):', error.message);
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'ownerName' | 'visibility' | 'totalBakes'>) => {
+    if (!user) throw new Error('Must be signed in to add recipes');
+    const docRef = await addDoc(collection(db, 'recipes'), {
+      ...recipe,
+      ownerId: user.uid,
+      ownerName: user.displayName || user.email || 'Anonymous Baker',
+      visibility: 'private',
+      totalBakes: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }, [user]);
 
   const updateRecipe = useCallback(async (id: string, updates: Partial<Recipe>) => {
-    if (useFirebaseRef.current) {
-      await updateDoc(doc(db, 'recipes', id), updates);
-    } else {
-      setRecipes((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
-      );
-    }
+    await updateDoc(doc(db, 'recipes', id), {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
   }, []);
 
   const deleteRecipe = useCallback(async (id: string) => {
-    if (useFirebaseRef.current) {
-      await deleteDoc(doc(db, 'recipes', id));
-    } else {
-      setRecipes((prev) => prev.filter((r) => r.id !== id));
-    }
+    await deleteDoc(doc(db, 'recipes', id));
   }, []);
 
   const getRecipe = useCallback(
