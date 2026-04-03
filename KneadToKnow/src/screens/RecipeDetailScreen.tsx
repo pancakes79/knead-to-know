@@ -1,26 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRecipes } from '../hooks/useRecipes';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveBake } from '../hooks/useActiveBake';
+import { toggleRecipeSharing } from '../services/cloudApi';
+import { parseDuration } from '../utils/parseDuration';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { RecipeStackParamList } from '../types';
 
 type RouteType = RouteProp<RecipeStackParamList, 'RecipeDetail'>;
 type NavType = NativeStackNavigationProp<RecipeStackParamList, 'RecipeDetail'>;
 
+function formatTimerLabel(seconds: number): string {
+  if (seconds >= 3600) {
+    const hrs = seconds / 3600;
+    return hrs === 1 ? '1 hour' : `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)} hours`;
+  }
+  const mins = Math.round(seconds / 60);
+  return mins === 1 ? '1 minute' : `${mins} minutes`;
+}
+
 export function RecipeDetailScreen() {
   const route = useRoute<RouteType>();
   const nav = useNavigation<NavType>();
-  const { getRecipe } = useRecipes();
+  const { getRecipe, updateRecipe, deleteRecipe, saveToMyRecipes } = useRecipes();
+  const { user } = useAuth();
+  const { startBake } = useActiveBake();
   const recipe = getRecipe(route.params.recipeId);
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'equipment'>('ingredients');
+  const [sharing, setSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isOwner = recipe && user && recipe.ownerId === user.uid;
+
+  const handleToggleShare = useCallback(async () => {
+    if (!recipe) return;
+    const newVisibility = recipe.visibility === 'shared' ? 'private' : 'shared';
+    const action = newVisibility === 'shared' ? 'share' : 'unshare';
+
+    Alert.alert(
+      newVisibility === 'shared' ? 'Share Recipe' : 'Make Private',
+      newVisibility === 'shared'
+        ? 'This recipe will be visible to all users in the community.'
+        : 'This recipe will only be visible to you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: newVisibility === 'shared' ? 'Share' : 'Make Private',
+          onPress: async () => {
+            setSharing(true);
+            try {
+              await toggleRecipeSharing(recipe.id);
+            } catch (error: any) {
+              Alert.alert('Error', error.message || `Failed to ${action} recipe.`);
+            } finally {
+              setSharing(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [recipe]);
+
+  const handleSaveToMyRecipes = useCallback(async () => {
+    if (!recipe) return;
+    setSaving(true);
+    try {
+      await saveToMyRecipes(recipe);
+      Alert.alert('Saved!', 'Recipe has been added to your collection.');
+      nav.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save recipe.');
+    } finally {
+      setSaving(false);
+    }
+  }, [recipe, saveToMyRecipes, nav]);
+
+  const handleDelete = useCallback(() => {
+    if (!recipe) return;
+    Alert.alert(
+      'Delete Recipe',
+      `Are you sure you want to delete "${recipe.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteRecipe(recipe.id);
+              nav.goBack();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete recipe.');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [recipe, deleteRecipe, nav]);
 
   if (!recipe) {
     return (
@@ -30,8 +119,11 @@ export function RecipeDetailScreen() {
     );
   }
 
+  const equipmentList = recipe.equipment || [];
+
   const tabs = [
     { key: 'ingredients' as const, label: 'Ingredients' },
+    { key: 'equipment' as const, label: 'Equipment' },
     { key: 'steps' as const, label: 'Steps' },
   ];
 
@@ -45,6 +137,12 @@ export function RecipeDetailScreen() {
           <Text style={styles.metaText}>{recipe.ingredients.length} ingredients</Text>
           <Text style={styles.metaDot}>·</Text>
           <Text style={styles.metaText}>{recipe.steps.length} steps</Text>
+          {equipmentList.length > 0 && (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.metaText}>{equipmentList.length} equipment</Text>
+            </>
+          )}
         </View>
       </View>
 
@@ -52,7 +150,10 @@ export function RecipeDetailScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => nav.navigate('ActiveBake', { recipeId: recipe.id })}
+          onPress={() => {
+            startBake(recipe.id, recipe.name);
+            nav.dispatch(CommonActions.navigate({ name: 'ActiveBakeTab' }));
+          }}
         >
           <Text style={styles.startButtonText}>Start Baking</Text>
         </TouchableOpacity>
@@ -63,6 +164,47 @@ export function RecipeDetailScreen() {
           <Text style={styles.logButtonText}>Bake Log</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Edit / Share / Delete */}
+      {isOwner && (
+        <View style={styles.ownerActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => nav.navigate('EditRecipe', { recipeId: recipe.id })}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
+            onPress={handleToggleShare}
+            disabled={sharing}
+          >
+            <Text style={styles.shareButtonText}>
+              {sharing ? '...' : recipe.visibility === 'shared' ? 'Unshare' : 'Share'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+            onPress={handleDelete}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteButtonText}>
+              {deleting ? '...' : 'Delete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {!isOwner && (
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSaveToMyRecipes}
+          disabled={saving}
+        >
+          <Text style={styles.saveButtonText}>
+            {saving ? 'Saving...' : 'Save to My Recipes'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
@@ -117,9 +259,34 @@ export function RecipeDetailScreen() {
                   {step.type === 'proof' && (
                     <Text style={styles.stepTag}>🌡 Use the proofing calculator for timing</Text>
                   )}
+                  {step.type !== 'stretch_folds' && (step.timerSeconds || parseDuration(step.text)) && (
+                    <Text style={styles.stepTag}>⏱ Timer: {formatTimerLabel(step.timerSeconds || parseDuration(step.text)!)}</Text>
+                  )}
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {activeTab === 'equipment' && (
+          <View style={styles.listSection}>
+            {equipmentList.length > 0 ? (
+              <>
+                <Text style={styles.listHint}>
+                  Equipment needed for this bake:
+                </Text>
+                {equipmentList.map((item) => (
+                  <View key={item.id} style={styles.listItem}>
+                    <View style={styles.bullet} />
+                    <Text style={styles.listItemText}>{item.text}</Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <Text style={styles.listHint}>
+                No equipment listed for this recipe. You can add equipment by editing the recipe.
+              </Text>
+            )}
           </View>
         )}
 
@@ -196,6 +363,76 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  ownerActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  editButton: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  editButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  shareButton: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.amber,
+  },
+  shareButtonDisabled: {
+    opacity: 0.6,
+  },
+  shareButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.amber,
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: '#FCEBEB',
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F7C1C1',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: '#A32D2D',
+  },
+  saveButton: {
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.amber,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    color: '#fff',
   },
   tabBar: {
     flexDirection: 'row',

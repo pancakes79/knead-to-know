@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { useRecipes } from '../hooks/useRecipes';
-import { importRecipeFromUrl, importRecipeFromText } from '../services/cloudApi';
+import { importRecipeFromUrl, importRecipeFromText, importRecipeFromPdf } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type ImportTab = 'url' | 'file' | 'manual';
@@ -28,6 +29,7 @@ export function ImportRecipeScreen() {
   const [manualName, setManualName] = useState('');
   const [manualIngredients, setManualIngredients] = useState('');
   const [manualSteps, setManualSteps] = useState('');
+  const [manualEquipment, setManualEquipment] = useState('');
 
   const handleUrlImport = async () => {
     if (!url.trim()) return;
@@ -53,11 +55,18 @@ export function ImportRecipeScreen() {
 
       setImporting(true);
       const file = result.assets[0];
+      const isPdf = file.mimeType === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
 
-      const response = await fetch(file.uri);
-      const text = await response.text();
+      let imported;
+      const fsFile = new File(file.uri);
+      if (isPdf) {
+        const base64 = await fsFile.base64();
+        imported = await importRecipeFromPdf(base64, file.name || 'Uploaded PDF');
+      } else {
+        const text = await fsFile.text();
+        imported = await importRecipeFromText(text, file.name || 'Uploaded file');
+      }
 
-      const imported = await importRecipeFromText(text, file.name || 'Uploaded file');
       Alert.alert('Success!', `"${imported.name}" has been added to your recipe bank.`);
       nav.goBack();
     } catch (error: any) {
@@ -90,11 +99,17 @@ export function ImportRecipeScreen() {
         return { id: `s${i + 1}`, text: text.trim(), type, sortOrder: i };
       });
 
+    const equipment = manualEquipment
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((text, i) => ({ id: `e${i + 1}`, text: text.trim(), sortOrder: i }));
+
     await addRecipe({
       name: manualName.trim(),
       source: 'Manual entry',
       ingredients,
       steps,
+      equipment,
     });
 
     Alert.alert('Saved!', `"${manualName.trim()}" has been added.`);
@@ -138,7 +153,7 @@ export function ImportRecipeScreen() {
             keyboardType="url"
           />
           <Text style={styles.hint}>
-            Paste a link to any recipe page. The app uses AI to automatically extract ingredients and steps.
+            Paste a link to any recipe page. The app uses AI to automatically extract ingredients and steps. Check for accuracy as AI can make mistakes.
           </Text>
           <TouchableOpacity
             style={[styles.importButton, (!url.trim() || importing) && styles.importButtonDisabled]}
@@ -210,6 +225,17 @@ export function ImportRecipeScreen() {
           <Text style={styles.hint}>
             Tip: Include "stretch and fold" or "proof" in a step and the app will auto-detect it for timers.
           </Text>
+
+          <Text style={[styles.label, { marginTop: spacing.lg }]}>Equipment (one per line)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder={'Dutch oven\nBench scraper\nBaking scale\nBanneton basket'}
+            placeholderTextColor={colors.textMuted}
+            value={manualEquipment}
+            onChangeText={setManualEquipment}
+            multiline
+            textAlignVertical="top"
+          />
 
           <TouchableOpacity style={styles.importButton} onPress={handleManualSave}>
             <Text style={styles.importButtonText}>Save Recipe</Text>

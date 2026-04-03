@@ -7,6 +7,7 @@ import * as Font from 'expo-font';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/hooks/useAuth';
 import { RecipeProvider } from './src/hooks/useRecipes';
+import { ActiveBakeProvider } from './src/hooks/useActiveBake';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,9 +38,11 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor="#faf5ec" />
       <AuthProvider>
         <RecipeProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
+          <ActiveBakeProvider>
+            <NavigationContainer>
+              <RootNavigator />
+            </NavigationContainer>
+          </ActiveBakeProvider>
         </RecipeProvider>
       </AuthProvider>
     </SafeAreaProvider>

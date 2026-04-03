@@ -1,28 +1,39 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CountdownTimer } from './CountdownTimer';
 import { getProofingEstimate, cToF, fToC, PROOFING_CHART } from '../constants/proofingData';
+import { getHATemperature } from '../services/cloudApi';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 type TempUnit = 'F' | 'C';
 
-export function ProofingScreen() {
-  const insets = useSafeAreaInsets();
+export function ProofingCalculator() {
   const [tempF, setTempF] = useState(72);
   const [unit, setUnit] = useState<TempUnit>('F');
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [tempSource, setTempSource] = useState<string | null>(null);
+
+  // Try to fetch temperature from Home Assistant on mount
+  useEffect(() => {
+    let cancelled = false;
+    getHATemperature()
+      .then((result) => {
+        if (!cancelled && result.tempF) {
+          // Clamp to slider range (60-85°F)
+          const clamped = Math.round(Math.min(85, Math.max(60, result.tempF)));
+          setTempF(clamped);
+          setTempSource(result.sensorName || 'Home Assistant');
+        }
+      })
+      .catch(() => {
+        // HA not configured or unreachable — stay on manual default
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const displayTemp = unit === 'F' ? tempF : fToC(tempF);
   const estimate = getProofingEstimate(tempF);
-
-  const handleUnitToggle = useCallback((newUnit: TempUnit) => {
-    setUnit(newUnit);
-  }, []);
 
   const handleSliderChange = useCallback((value: number) => {
     if (unit === 'F') {
@@ -30,20 +41,17 @@ export function ProofingScreen() {
     } else {
       setTempF(cToF(Math.round(value)));
     }
+    setTimerStarted(false);
   }, [unit]);
+
+  const timerSeconds = Math.round(estimate.hours * 3600);
 
   const sliderMin = unit === 'F' ? 60 : 15;
   const sliderMax = unit === 'F' ? 85 : 30;
   const sliderValue = unit === 'F' ? tempF : fToC(tempF);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Proofing Calculator</Text>
-        <Text style={styles.subtitle}>Based on The Sourdough Journey Dough Temping Guide</Text>
-      </View>
-
+    <View>
       {/* Dark calculator card */}
       <View style={styles.calcCard}>
         {/* Unit toggle */}
@@ -52,7 +60,7 @@ export function ProofingScreen() {
             <TouchableOpacity
               key={u}
               style={[styles.unitButton, unit === u && styles.unitButtonActive]}
-              onPress={() => handleUnitToggle(u)}
+              onPress={() => setUnit(u)}
             >
               <Text style={[styles.unitText, unit === u && styles.unitTextActive]}>°{u}</Text>
             </TouchableOpacity>
@@ -89,10 +97,28 @@ export function ProofingScreen() {
           </View>
         </View>
 
-        {/* Auto-temp hint */}
-        <Text style={styles.autoTempHint}>
-          You can set up automatic temperature detection in Settings.
+        <Text style={styles.sourceHint}>
+          {tempSource
+            ? `Temperature from ${tempSource} · Based on The Sourdough Journey Dough Temping Guide`
+            : 'Based on The Sourdough Journey Dough Temping Guide'}
         </Text>
+
+        {/* Timer */}
+        {!timerStarted ? (
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => setTimerStarted(true)}
+          >
+            <Text style={styles.startButtonText}>Start Proof Timer ({estimate.hours}h)</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.timerWrap}>
+            <CountdownTimer
+              label={`Proofing at ${tempF}°F — ${estimate.rise}% target rise`}
+              totalSeconds={timerSeconds}
+            />
+          </View>
+        )}
       </View>
 
       {/* Reference chart */}
@@ -128,32 +154,11 @@ export function ProofingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgPrimary,
-  },
-  header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.lg,
-  },
-  title: {
-    fontFamily: fonts.heading,
-    fontSize: 26,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
   calcCard: {
-    marginHorizontal: spacing.xl,
     backgroundColor: colors.bgDark,
     borderRadius: borderRadius.xl,
     padding: spacing.xxl,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   unitRow: {
     flexDirection: 'row',
@@ -222,16 +227,30 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.golden,
   },
-  autoTempHint: {
+  sourceHint: {
     fontFamily: fonts.body,
     fontSize: 12,
     color: colors.textLight,
     textAlign: 'center',
     opacity: 0.7,
+    marginBottom: spacing.lg,
+  },
+  startButton: {
+    backgroundColor: colors.amber,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 15,
+    color: '#fff',
+  },
+  timerWrap: {
+    marginTop: spacing.sm,
   },
   chartSection: {
-    paddingHorizontal: spacing.xl,
-    flex: 1,
+    paddingBottom: spacing.lg,
   },
   chartTitle: {
     fontFamily: fonts.bodySemiBold,

@@ -42,6 +42,22 @@ export async function importRecipeFromText(
 }
 
 /**
+ * Import a recipe from a PDF file (sent as base64).
+ * The server passes the PDF to Claude for extraction.
+ */
+export async function importRecipeFromPdf(
+  pdfBase64: string,
+  source: string = 'Uploaded PDF'
+): Promise<ImportedRecipe> {
+  const fn = httpsCallable<{ pdfBase64: string; source: string }, ImportedRecipe>(
+    functions,
+    'importRecipeFromPdf'
+  );
+  const result = await fn({ pdfBase64, source });
+  return result.data;
+}
+
+/**
  * Import a recipe from a URL. The server fetches the page,
  * strips HTML, and parses with Claude.
  */

@@ -8,6 +8,10 @@ import {
   GoogleAuthProvider,
   updateProfile,
   deleteUser,
+  sendEmailVerification,
+  multiFactor,
+  getMultiFactorResolver,
+  MultiFactorResolver,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
@@ -21,16 +25,23 @@ export interface AppUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  emailVerified: boolean;
 }
 
 interface AuthContextValue {
   user: AppUser | null;
   loading: boolean;
+  mfaResolver: MultiFactorResolver | null;
+  isMFAEnrolled: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   signInWithGoogle: (idToken: string, accessToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  clearMFAResolver: () => void;
+  disableMFA: () => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +51,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
+  const [isMFAEnrolled, setIsMFAEnrolled] = useState(false);
 
   // Listen for auth state changes (also handles token refresh & app restarts)
   useEffect(() => {
@@ -50,7 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
+          emailVerified: firebaseUser.emailVerified,
         });
+        // Check MFA enrollment status
+        const enrolledFactors = multiFactor(firebaseUser).enrolledFactors;
+        setIsMFAEnrolled(enrolledFactors.length > 0);
         // Ensure user document exists in Firestore
         await ensureUserDocument(firebaseUser);
       } else {
@@ -80,12 +97,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ─── Email/Password Auth ───
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        return; // Don't rethrow — UI will show MFA verify screen
+      }
+      throw error;
+    }
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, displayName: string) => {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName });
+    // Send email verification
+    await sendEmailVerification(credential.user);
     // Trigger the onAuthStateChanged with updated profile
     await credential.user.reload();
   }, []);
@@ -93,13 +121,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ─── Google Sign-In ───
 
   const signInWithGoogle = useCallback(async (idToken: string, accessToken?: string) => {
-    const credential = GoogleAuthProvider.credential(idToken, accessToken);
-    await signInWithCredential(auth, credential);
+    try {
+      const credential = GoogleAuthProvider.credential(idToken, accessToken);
+      await signInWithCredential(auth, credential);
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        return;
+      }
+      throw error;
+    }
+  }, []);
+
+  // ─── Email Verification ───
+
+  const resendVerificationEmail = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('Not signed in');
+    if (currentUser.emailVerified) throw new Error('Email already verified');
+    await sendEmailVerification(currentUser);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    await currentUser.reload();
+    setUser({
+      uid: currentUser.uid,
+      email: currentUser.email,
+      displayName: currentUser.displayName,
+      photoURL: currentUser.photoURL,
+      emailVerified: currentUser.emailVerified,
+    });
+    const enrolledFactors = multiFactor(currentUser).enrolledFactors;
+    setIsMFAEnrolled(enrolledFactors.length > 0);
+  }, []);
+
+  // ─── MFA ───
+
+  const clearMFAResolver = useCallback(() => {
+    setMfaResolver(null);
+  }, []);
+
+  const disableMFA = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('Not signed in');
+
+    const enrolled = multiFactor(currentUser).enrolledFactors;
+    if (enrolled.length === 0) throw new Error('MFA is not enabled');
+
+    await multiFactor(currentUser).unenroll(enrolled[0]);
+    setIsMFAEnrolled(false);
   }, []);
 
   // ─── Sign Out ───
 
   const signOut = useCallback(async () => {
+    setMfaResolver(null);
     await firebaseSignOut(auth);
   }, []);
 
@@ -154,11 +233,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
+        mfaResolver,
+        isMFAEnrolled,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
         signOut,
         deleteAccount,
+        clearMFAResolver,
+        disableMFA,
+        resendVerificationEmail,
+        refreshUser,
       }}
     >
       {children}
