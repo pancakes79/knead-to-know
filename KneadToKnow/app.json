@@ -38,7 +38,7 @@
     "plugins": [
   [
     "expo-splash-screen",
-    { "image": "./assets/splash-icon.png", "backgroundColor": "#faf5ec", "imageWidth": 280 }
+    { "image": "./assets/splash-icon.png", "backgroundColor": "#faf5ec", "imageWidth": 380 }
   ],
   ["react-native-ble-plx", { "isBackgroundEnabled": false }],
   ["expo-notifications", { "sounds": [] }],
