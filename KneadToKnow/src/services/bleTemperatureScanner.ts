@@ -46,6 +46,7 @@ class BLETemperatureScanner {
   private manager: BleManager;
   private discoveredSensors: Map<string, BLETemperatureSensor> = new Map();
   private scanning = false;
+  private scanTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     this.manager = new BleManager();
@@ -106,10 +107,14 @@ class BLETemperatureScanner {
     this.discoveredSensors.clear();
     this.scanning = true;
 
+    if (this.scanTimeout) {
+      clearTimeout(this.scanTimeout);
+    }
+
     return new Promise((resolve) => {
-      // Stop scanning after duration
-      const timeout = setTimeout(() => {
+      this.scanTimeout = setTimeout(() => {
         this.stopScan();
+        this.scanTimeout = null;
         resolve(Array.from(this.discoveredSensors.values()));
       }, durationMs);
 
@@ -373,6 +378,13 @@ export function getBLEScanner(): BLETemperatureScanner {
     scannerInstance = new BLETemperatureScanner();
   }
   return scannerInstance;
+}
+
+export function destroyBLEScanner(): void {
+  if (scannerInstance) {
+    scannerInstance.destroy();
+    scannerInstance = null; // Reset the singleton
+  }
 }
 
 export { BLETemperatureScanner };
