@@ -32,10 +32,6 @@ import { MFAEnrollScreen } from '../screens/MFAEnrollScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 import { TermsOfServiceScreen } from '../screens/TermsOfServiceScreen';
 
-// ─── Navigation Types ───
-
-import { RecipeStackParamList, RootTabParamList } from '../types';
-
 // ─── Recipe Stack ───
 
 const RecipeStack = createNativeStackNavigator<RecipeStackParamList>();
