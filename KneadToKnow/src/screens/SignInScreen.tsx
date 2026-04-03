@@ -14,6 +14,7 @@ import {
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
+import { MFAVerifyScreen } from './MFAVerifyScreen';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -21,7 +22,7 @@ WebBrowser.maybeCompleteAuthSession();
 type AuthMode = 'sign_in' | 'sign_up';
 
 export function SignInScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, mfaResolver, clearMFAResolver } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('sign_in');
   const [email, setEmail] = useState('');
@@ -108,6 +109,17 @@ export function SignInScreen() {
       default:
         return 'Something went wrong. Please try again.';
     }
+  }
+
+  // Show MFA verification screen when a resolver is pending
+  if (mfaResolver) {
+    return (
+      <MFAVerifyScreen
+        resolver={mfaResolver}
+        onSuccess={() => clearMFAResolver()}
+        onCancel={() => clearMFAResolver()}
+      />
+    );
   }
 
   return (

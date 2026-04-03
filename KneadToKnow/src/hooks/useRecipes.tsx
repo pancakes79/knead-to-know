@@ -7,75 +7,25 @@ import {
   doc,
   onSnapshot,
   query,
+  where,
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Recipe, Ingredient, RecipeStep } from '../types';
-
-// ─── Sample data (used when Firebase is not configured) ───
-
-const SAMPLE_RECIPES: Recipe[] = [
-  {
-    id: 'sample-1',
-    name: 'Classic Sourdough Boule',
-    source: 'The Sourdough Journey',
-    createdAt: new Date(),
-    ingredients: [
-      { id: 'i1', text: '500g bread flour', sortOrder: 0 },
-      { id: 'i2', text: '350g water (70% hydration)', sortOrder: 1 },
-      { id: 'i3', text: '100g active starter', sortOrder: 2 },
-      { id: 'i4', text: '10g fine sea salt', sortOrder: 3 },
-    ],
-    steps: [
-      { id: 's1', text: 'Mix flour and water. Autolyse for 30 minutes.', type: 'step', sortOrder: 0 },
-      { id: 's2', text: 'Add starter and salt. Mix until well incorporated.', type: 'step', sortOrder: 1 },
-      { id: 'sf', text: 'Bulk fermentation — Stretch & Folds (4 sets, 30 min apart)', type: 'stretch_folds', sortOrder: 2 },
-      { id: 's3', text: 'Continue bulk proof until dough has risen per proofing guide.', type: 'proof', sortOrder: 3 },
-      { id: 's4', text: 'Pre-shape the dough into a round. Rest 20 minutes.', type: 'step', sortOrder: 4 },
-      { id: 's5', text: 'Final shape into a boule and place in banneton.', type: 'step', sortOrder: 5 },
-      { id: 's6', text: 'Cold retard in fridge for 8–16 hours.', type: 'step', sortOrder: 6 },
-      { id: 's7', text: 'Preheat Dutch oven to 500°F (260°C) for 1 hour.', type: 'step', sortOrder: 7 },
-      { id: 's8', text: 'Score and bake covered 20 min, then uncovered at 450°F for 20–25 min.', type: 'step', sortOrder: 8 },
-      { id: 's9', text: 'Cool on wire rack for at least 1 hour before slicing.', type: 'step', sortOrder: 9 },
-    ],
-  },
-  {
-    id: 'sample-2',
-    name: 'Sourdough Sandwich Loaf',
-    source: 'Homemade',
-    createdAt: new Date(),
-    ingredients: [
-      { id: 'i1', text: '450g bread flour', sortOrder: 0 },
-      { id: 'i2', text: '50g whole wheat flour', sortOrder: 1 },
-      { id: 'i3', text: '300g water', sortOrder: 2 },
-      { id: 'i4', text: '100g active starter', sortOrder: 3 },
-      { id: 'i5', text: '30g honey', sortOrder: 4 },
-      { id: 'i6', text: '30g butter, softened', sortOrder: 5 },
-      { id: 'i7', text: '10g salt', sortOrder: 6 },
-    ],
-    steps: [
-      { id: 's1', text: 'Combine flour, water, and honey. Autolyse 30 min.', type: 'step', sortOrder: 0 },
-      { id: 's2', text: 'Add starter, salt, and butter. Knead until smooth.', type: 'step', sortOrder: 1 },
-      { id: 'sf', text: 'Bulk fermentation — Stretch & Folds (4 sets, 30 min apart)', type: 'stretch_folds', sortOrder: 2 },
-      { id: 's3', text: 'Bulk proof until doubled.', type: 'proof', sortOrder: 3 },
-      { id: 's4', text: 'Shape into a log and place in greased loaf pan.', type: 'step', sortOrder: 4 },
-      { id: 's5', text: 'Proof until dough crests 1 inch above pan rim.', type: 'step', sortOrder: 5 },
-      { id: 's6', text: 'Bake at 375°F (190°C) for 35–40 minutes.', type: 'step', sortOrder: 6 },
-      { id: 's7', text: 'Cool completely before slicing.', type: 'step', sortOrder: 7 },
-    ],
-  },
-];
+import { useAuth } from './useAuth';
+import { Recipe } from '../types';
 
 // ─── Context ───
 
 interface RecipeContextValue {
   recipes: Recipe[];
+  communityRecipes: Recipe[];
   loading: boolean;
-  addRecipe: (recipe: Omit<Recipe, 'id' | 'createdAt'>) => Promise<string>;
+  addRecipe: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'visibility' | 'totalBakes'>) => Promise<string>;
   updateRecipe: (id: string, updates: Partial<Recipe>) => Promise<void>;
   deleteRecipe: (id: string) => Promise<void>;
   getRecipe: (id: string) => Recipe | undefined;
+  saveToMyRecipes: (recipe: Recipe) => Promise<string>;
 }
 
 const RecipeContext = createContext<RecipeContextValue | null>(null);
@@ -85,7 +35,7 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const useFirebaseRef = React.useRef(false);
 
-  // Try to connect to Firestore — fall back to sample data if not configured
+  // Listen for the current user's recipes
   useEffect(() => {
     try {
       const q = query(collection(db, 'recipes'), orderBy('createdAt', 'desc'));
@@ -113,8 +63,8 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.log('Firebase not initialized, using sample data');
       setLoading(false);
+      return;
     }
-  }, []);
 
   const addRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'createdAt'>) => {
     if (useFirebaseRef.current) {
@@ -154,12 +104,38 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getRecipe = useCallback(
-    (id: string) => recipes.find((r) => r.id === id),
-    [recipes]
+    (id: string) => recipes.find((r) => r.id === id) || communityRecipes.find((r) => r.id === id),
+    [recipes, communityRecipes]
   );
 
+  // Copy a community recipe to the current user's collection
+  const saveToMyRecipes = useCallback(async (recipe: Recipe) => {
+    if (!user) throw new Error('Must be signed in');
+    const { id, ownerId, ownerName, visibility, createdAt, updatedAt, totalBakes, ...recipeData } = recipe;
+    const docRef = await addDoc(collection(db, 'recipes'), {
+      ...recipeData,
+      ownerId: user.uid,
+      ownerName: user.displayName || user.email || 'Anonymous Baker',
+      visibility: 'private',
+      totalBakes: 0,
+      forkedFrom: id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }, [user]);
+
   return (
-    <RecipeContext.Provider value={{ recipes, loading, addRecipe, updateRecipe, deleteRecipe, getRecipe }}>
+    <RecipeContext.Provider value={{
+      recipes,
+      communityRecipes,
+      loading,
+      addRecipe,
+      updateRecipe,
+      deleteRecipe,
+      getRecipe,
+      saveToMyRecipes,
+    }}>
       {children}
     </RecipeContext.Provider>
   );

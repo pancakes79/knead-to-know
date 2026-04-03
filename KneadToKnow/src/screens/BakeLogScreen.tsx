@@ -9,19 +9,19 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp, CommonActions, NavigationProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   collection,
   addDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../config/firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { db, storage, auth } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
 import { useRecipes } from '../hooks/useRecipes';
 import { StarRating } from '../components/StarRating';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
@@ -31,6 +31,8 @@ type RouteType = RouteProp<RecipeStackParamList, 'BakeLog'>;
 
 export function BakeLogScreen() {
   const route = useRoute<RouteType>();
+  const { user } = useAuth();
+  const nav = useNavigation<NavigationProp<RecipeStackParamList>>();
   const { getRecipe } = useRecipes();
   const recipe = getRecipe(route.params.recipeId);
 
@@ -40,13 +42,14 @@ export function BakeLogScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load existing bake log entries
+  // Load existing bake log entries scoped to current user
   useEffect(() => {
+    if (!user) return;
     try {
       const q = query(
-        collection(db, 'bakeLogs'),
+        collection(db, 'bakes'),
         where('recipeId', '==', route.params.recipeId),
-        orderBy('date', 'desc')
+        where('ownerId', '==', user.uid)
       );
       const unsubscribe = onSnapshot(
         q,
@@ -56,6 +59,7 @@ export function BakeLogScreen() {
             ...doc.data(),
             date: doc.data().date?.toDate() || new Date(),
           })) as BakeLogEntry[];
+          logs.sort((a, b) => b.date.getTime() - a.date.getTime());
           setEntries(logs);
         },
         (error) => {
@@ -64,9 +68,9 @@ export function BakeLogScreen() {
       );
       return unsubscribe;
     } catch {
-      // Firebase not configured — use local state
+      // Firebase not configured
     }
-  }, [route.params.recipeId]);
+  }, [route.params.recipeId, user?.uid]);
 
   const handlePickPhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -80,7 +84,7 @@ export function BakeLogScreen() {
         text: 'Camera',
         onPress: async () => {
           const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             quality: 0.7,
             allowsEditing: true,
             aspect: [4, 3],
@@ -94,7 +98,7 @@ export function BakeLogScreen() {
         text: 'Gallery',
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             quality: 0.7,
             allowsEditing: true,
             aspect: [4, 3],
@@ -118,51 +122,64 @@ export function BakeLogScreen() {
     try {
       let photoUrl: string | null = null;
 
-      // Upload photo to Firebase Storage if present
+      // Upload photo to Firebase Storage via XHR (Firebase JS SDK Blob APIs don't work in RN)
       if (photoUri) {
         try {
-          const response = await fetch(photoUri);
-          const blob = await response.blob();
-          const filename = `bake-photos/${route.params.recipeId}/${Date.now()}.jpg`;
-          const storageRef = ref(storage, filename);
-          await uploadBytes(storageRef, blob);
+          const filePath = `bake-photos/${user!.uid}/${route.params.recipeId}/${Date.now()}.jpg`;
+          const bucket = storage.app.options.storageBucket;
+          const token = await auth.currentUser?.getIdToken();
+          const encodedPath = encodeURIComponent(filePath);
+          const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`Upload failed: ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Upload network error'));
+            xhr.open('POST', uploadUrl);
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.setRequestHeader('Content-Type', 'image/jpeg');
+            xhr.send({ uri: photoUri } as any); // RN XHR handles file URIs natively
+          });
+
+          const storageRef = ref(storage, filePath);
           photoUrl = await getDownloadURL(storageRef);
-        } catch {
-          console.log('Photo upload failed — saving without photo');
+        } catch (uploadErr) {
+          console.log('Photo upload failed:', uploadErr);
+          Alert.alert('Photo Upload Failed', 'Your bake will be saved without the photo.');
         }
       }
 
       // Save to Firestore
-      try {
-        await addDoc(collection(db, 'bakeLogs'), {
-          recipeId: route.params.recipeId,
-          date: serverTimestamp(),
-          rating,
-          notes: notes.trim(),
-          photoUrl,
-          ambientTempF: null,
-          proofingHours: null,
-        });
-      } catch {
-        // Firebase not configured — save locally
-        const localEntry: BakeLogEntry = {
-          id: `local-${Date.now()}`,
-          recipeId: route.params.recipeId,
-          date: new Date(),
-          rating,
-          notes: notes.trim(),
-          photoUrl: photoUri,
-          ambientTempF: null,
-          proofingHours: null,
-        };
-        setEntries((prev) => [localEntry, ...prev]);
-      }
+      await addDoc(collection(db, 'bakes'), {
+        recipeId: route.params.recipeId,
+        recipeName: recipe?.name || 'Unknown Recipe',
+        ownerId: user?.uid,
+        date: serverTimestamp(),
+        rating,
+        notes: notes.trim(),
+        photoUrl,
+        ambientTempF: null,
+        proofingHours: null,
+      });
 
       // Reset form
       setRating(0);
       setNotes('');
       setPhotoUri(null);
-      Alert.alert('Saved!', 'Your bake has been logged.');
+      Alert.alert('Saved!', 'Your bake has been logged.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            nav.dispatch(CommonActions.navigate({ name: 'RecipesTab' }));
+          },
+        },
+      ]);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to save bake log.');
     } finally {
@@ -233,7 +250,22 @@ export function BakeLogScreen() {
         <View style={styles.historySection}>
           <Text style={styles.historyTitle}>Past Bakes</Text>
           {entries.map((entry) => (
-            <View key={entry.id} style={styles.entryCard}>
+            <TouchableOpacity
+              key={entry.id}
+              style={styles.entryCard}
+              activeOpacity={0.7}
+              onPress={() =>
+                nav.navigate('BakeLogDetail', {
+                  entryId: entry.id,
+                  recipeId: entry.recipeId,
+                  recipeName: recipe?.name || entry.recipeName || 'Unknown Recipe',
+                  date: entry.date instanceof Date ? entry.date.toISOString() : new Date().toISOString(),
+                  rating: entry.rating,
+                  notes: entry.notes,
+                  photoUrl: entry.photoUrl,
+                })
+              }
+            >
               <View style={styles.entryHeader}>
                 <Text style={styles.entryDate}>
                   {entry.date instanceof Date
@@ -247,12 +279,12 @@ export function BakeLogScreen() {
                 <StarRating rating={entry.rating} readonly size={18} />
               </View>
               {entry.notes ? (
-                <Text style={styles.entryNotes}>{entry.notes}</Text>
+                <Text style={styles.entryNotes} numberOfLines={2}>{entry.notes}</Text>
               ) : null}
               {entry.photoUrl ? (
                 <Image source={{ uri: entry.photoUrl }} style={styles.entryPhoto} />
               ) : null}
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
