@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { CountdownTimer } from './CountdownTimer';
 import { getProofingEstimate, cToF, fToC, PROOFING_CHART } from '../constants/proofingData';
@@ -13,24 +13,28 @@ export function ProofingCalculator() {
   const [unit, setUnit] = useState<TempUnit>('F');
   const [timerStarted, setTimerStarted] = useState(false);
   const [tempSource, setTempSource] = useState<string | null>(null);
+  const [haLoading, setHaLoading] = useState(false);
 
-  // Try to fetch temperature from Home Assistant on mount
-  useEffect(() => {
-    let cancelled = false;
+  const fetchHA = useCallback(() => {
+    setHaLoading(true);
     getHATemperature()
       .then((result) => {
-        if (!cancelled && result.tempF) {
-          // Clamp to slider range (60-85°F)
+        if (result.tempF) {
           const clamped = Math.round(Math.min(85, Math.max(60, result.tempF)));
           setTempF(clamped);
           setTempSource(result.sensorName || 'Home Assistant');
         }
       })
       .catch(() => {
-        // HA not configured or unreachable — stay on manual default
-      });
-    return () => { cancelled = true; };
+        // HA not configured or unreachable — stay on manual
+      })
+      .finally(() => setHaLoading(false));
   }, []);
+
+  // Auto-fetch on mount
+  useEffect(() => {
+    fetchHA();
+  }, [fetchHA]);
 
   const displayTemp = unit === 'F' ? tempF : fToC(tempF);
   const estimate = getProofingEstimate(tempF);
@@ -97,11 +101,24 @@ export function ProofingCalculator() {
           </View>
         </View>
 
-        <Text style={styles.sourceHint}>
-          {tempSource
-            ? `Temperature from ${tempSource} · Based on The Sourdough Journey Dough Temping Guide`
-            : 'Based on The Sourdough Journey Dough Temping Guide'}
-        </Text>
+        <View style={styles.sourceRow}>
+          <Text style={[styles.sourceHint, { flex: 1 }]}>
+            {tempSource
+              ? `Temperature from ${tempSource}`
+              : 'Based on The Sourdough Journey Dough Temping Guide'}
+          </Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={fetchHA}
+            disabled={haLoading}
+          >
+            {haLoading ? (
+              <ActivityIndicator size="small" color={colors.golden} />
+            ) : (
+              <Text style={styles.refreshText}>Refresh</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Timer */}
         {!timerStarted ? (
@@ -227,13 +244,31 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.golden,
   },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
   sourceHint: {
     fontFamily: fonts.body,
     fontSize: 12,
     color: colors.textLight,
-    textAlign: 'center',
     opacity: 0.7,
-    marginBottom: spacing.lg,
+  },
+  refreshButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 168, 73, 0.4)',
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  refreshText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    color: colors.golden,
   },
   startButton: {
     backgroundColor: colors.amber,
