@@ -37,13 +37,18 @@
     "expo-splash-screen",
     { "image": "./assets/splash-icon.png", "backgroundColor": "#faf5ec", "imageWidth": 380 }
   ],
-  ["react-native-ble-plx", { "isBackgroundEnabled": false }],
   ["expo-notifications", { "sounds": [] }],
   [
     "expo-image-picker",
     {
       "photosPermission": "Knead to Know needs photo access to save bake photos.",
       "cameraPermission": "Knead to Know needs camera access to photograph your bakes."
+    }
+  ],
+  [
+    "expo-location",
+    {
+      "locationAlwaysAndWhenInUsePermission": "Allow Knead to Know to use your location to fetch the local weather and estimate your indoor proofing temperature."
     }
   ]
 ],

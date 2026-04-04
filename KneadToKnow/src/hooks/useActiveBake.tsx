@@ -62,7 +62,8 @@ export function ActiveBakeProvider({ children }: { children: React.ReactNode }) 
   const selectedBake = activeBakes.find((b) => b.id === selectedBakeId) || null;
 
   const startBake = useCallback((recipeId: string, recipeName: string) => {
-    const id = `bake-${nextBakeId++}`;
+    // Generate a unique ID based on the exact millisecond the bake started
+    const id = `bake-${Date.now()}`;
     const bake: ActiveBake = {
       id,
       recipeId,

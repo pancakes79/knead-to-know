@@ -71,39 +71,51 @@ export function useTimer({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (state: AppStateStatus) => {
       if (state === 'background' && isRunningRef.current && remainingRef.current > 0) {
-        const id = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '🍞 Knead to Know',
-            body: `${labelRef.current} — Timer complete!`,
-            sound: true,
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: remainingRef.current,
-          },
-        });
-        notificationIdRef.current = id;
-        // Use standard variable, no need for React state here
-        backgroundEndTimeRef.current = Date.now() + remainingRef.current * 1000; 
-      } else if (state === 'active' && notificationIdRef.current) {
-        await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
-        notificationIdRef.current = null;
-      
+        
+        // 1. ALWAYS save the background timestamp first
+        backgroundEndTimeRef.current = Date.now() + remainingRef.current * 1000;
+
+        // 2. Try to schedule notification, but catch the error if they denied permissions
+        try {
+          const id = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: '🍞 Knead to Know',
+              body: `${labelRef.current} — Timer complete!`,
+              sound: true,
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: remainingRef.current,
+            },
+          });
+          notificationIdRef.current = id;
+        } catch (e) {
+          // User denied permissions. Silent catch, the timer will still sync mathematically!
+        }
+
+      // 3. REMOVED the notification ID check. Depend purely on the background timestamp.
+      } else if (state === 'active' && backgroundEndTimeRef.current) {
+        
+        // Clean up the notification if one was successfully created
+        if (notificationIdRef.current) {
+          await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
+          notificationIdRef.current = null;
+        }
+        
         const expectedEndTime = backgroundEndTimeRef.current;
-        if (expectedEndTime) {
-          const newRemaining = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
-          setRemaining(newRemaining);
-          backgroundEndTimeRef.current = null; // reset it
-          if (newRemaining <= 0) {
-            setIsRunning(false);
-            onCompleteRef.current?.();
-          }
+        const newRemaining = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
+        setRemaining(newRemaining);
+        backgroundEndTimeRef.current = null;
+        
+        if (newRemaining <= 0) {
+          setIsRunning(false);
+          onCompleteRef.current?.();
         }
       }
     });
 
-  return () => subscription.remove();
-}, []); // <-- Empty dependency array!
+    return () => subscription.remove();
+  }, []);
 
   // Core timer interval
   useEffect(() => {
