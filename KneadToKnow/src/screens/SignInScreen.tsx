@@ -91,7 +91,7 @@ export function SignInScreen() {
     } catch (error: any) {
       const code = error.code;
       if (code === 'auth/user-not-found') {
-        Alert.alert('Not Found', 'No account found with that email address.');
+        Alert.alert('Not Found', 'If an account exists with that email, a reset link has been sent.');
       } else if (code === 'auth/invalid-email') {
         Alert.alert('Invalid Email', 'Please enter a valid email address.');
       } else if (code === 'auth/too-many-requests') {
