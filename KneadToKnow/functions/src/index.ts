@@ -191,6 +191,40 @@ function sanitizeInput(text: string): string {
     .trim();
 }
 
+// ─── Validate Safe URLs ───
+
+function validateSafeUrl(urlString: string): URL {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(urlString);
+  } catch {
+    throw new HttpsError("invalid-argument", "Invalid URL format.");
+  }
+
+  // 1. Restrict protocols to HTTP/HTTPS
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new HttpsError("invalid-argument", "Only HTTP and HTTPS URLs are supported.");
+  }
+
+  const hostname = parsedUrl.hostname;
+
+  // 2. Block Localhost and Cloud Metadata hostnames
+  const restrictedHosts = ["localhost", "metadata.google.internal", "metadata", "169.254.169.254"];
+  if (restrictedHosts.includes(hostname) || hostname.endsWith(".local")) {
+    throw new HttpsError("permission-denied", "Access to restricted internal hostnames is forbidden.");
+  }
+
+  // 3. Block Private and Loopback IP Addresses (IPv4 and IPv6)
+  const isPrivateIP = /^(127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/.test(hostname);
+  const isLoopbackIPv6 = hostname === "::1" || hostname === "[::1]";
+
+  if (isPrivateIP || isLoopbackIPv6) {
+    throw new HttpsError("permission-denied", "Access to internal IP addresses is forbidden.");
+  }
+
+  return parsedUrl;
+}
+
 // ─── Prompt Hardening ───
 
 const RECIPE_SYSTEM_PROMPT = `You are a sourdough and bread recipe parser for the "Knead to Know" app. Your ONLY job is to extract structured recipe data from user-provided content.
@@ -464,11 +498,11 @@ export const saveHAConfig = onCall(async (request) => {
   };
 
   if (!url || !entityId) {
-    throw new HttpsError(
-      "invalid-argument",
-      "url and entityId are required."
-    );
+    throw new HttpsError("invalid-argument", "url and entityId are required.");
   }
+
+  const safeUrl = validateSafeUrl(url.trim());
+  const cleanUrl = safeUrl.href.replace(/\/$/, "");
 
   console.log(`saveHAConfig: uid=${uid}, hasToken=${!!token}`);
   if (token) {
@@ -495,7 +529,7 @@ export const saveHAConfig = onCall(async (request) => {
 
   console.log(`saveHAConfig: saving Firestore config`);
   await db.doc(`users/${uid}/config/homeAssistant`).set({
-    url,
+    url: cleanUrl, // Save the clean, validated URL
     entityId,
     updatedAt: new Date(),
   });
@@ -573,7 +607,9 @@ export const importRecipeFromUrl = onCall(async (request) => {
   const uid = request.auth.uid;
   const {url} = request.data as {url: string};
 
-  if (!url || !url.trim()) throw new HttpsError("invalid-argument", "URL is required.");
+  if (!url || !url.trim()) {
+    throw new HttpsError("invalid-argument", "URL is required.");
+  }
 
   const trimmedUrl = url.trim();
   if (!/^https?:\/\//i.test(trimmedUrl)) {
