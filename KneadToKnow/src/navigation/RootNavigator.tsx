@@ -87,7 +87,7 @@ function BakeStackNavigator() {
         headerShadowVisible: false,
       }}
     >
-      <BakeStack.Screen name="ActiveBakeMain" component={ActiveBakeScreen} options={{ title: 'Active Bake' }} />
+      <BakeStack.Screen name="ActiveBakeMain" component={ActiveBakeScreen} options={{ headerShown: false }} />
       <BakeStack.Screen name="BakeComplete" component={BakeCompleteScreen} options={{ headerShown: false }} />
       <BakeStack.Screen name="BakeLog" component={BakeLogScreen} options={{ title: 'Bake Log' }} />
       <BakeStack.Screen name="BakeLogDetail" component={BakeLogDetailScreen} options={{ title: 'Bake Entry' }} />
@@ -236,7 +236,6 @@ function AuthenticatedApp() {
         component={BakeStackNavigator}
         options={{
           tabBarLabel: 'Bake',
-          popToTopOnBlur: true,
           tabBarIcon: ({ color }) => (
             <View style={styles.tabIcon}>
               <View style={[styles.tabIconSquare, { borderColor: color }]}>

@@ -18,6 +18,7 @@ import { ProofingStepCard } from '../components/ProofingStepCard';
 import { colors, fonts, spacing, borderRadius } from '../constants/theme';
 import { scaleIngredientText } from '../utils/ingredientScaler';
 import { parseDuration } from '../utils/parseDuration';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ActiveTab = 'ingredients' | 'equipment' | 'steps';
 
@@ -38,8 +39,9 @@ function BakePicker({
   bakes: ActiveBake[];
   onSelect: (id: string) => void;
 }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.pickerContainer}>
+    <View style={[styles.pickerContainer, { paddingTop: insets.top }]}>
       <View style={styles.brandHeader}>
         <Text style={styles.brandTitle}>Knead to Know</Text>
         <Text style={styles.brandSubtitle}>SOURDOUGH COMPANION</Text>
@@ -100,9 +102,10 @@ function BakeDetail({
   const [activeTab, setActiveTab] = useState<ActiveTab>('ingredients');
 
   const recipe = getRecipe(bake.recipeId);
+  const insets = useSafeAreaInsets();
   if (!recipe) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
         <Text style={styles.emptyTitle}>Recipe Not Found</Text>
         <Text style={styles.emptyText}>
           The original recipe for this bake has been deleted or is unavailable.

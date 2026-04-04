@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, getDoc } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { db } from '../config/firebase';
 import { saveHAConfiguration, getHATemperature, deleteAccount as deleteAccountServer } from '../services/cloudApi';
 import { useAuth } from '../hooks/useAuth';
@@ -172,7 +173,7 @@ export function SettingsScreen() {
   }, [currentPw, newPw, confirmPw, changePassword]);
 
   // Check if user signed in with email/password (vs Google OAuth)
-  const isEmailUser = !!user?.email && !user?.photoURL;
+  const isEmailUser = (user as User)?.providerData?.some((p) => p.providerId === 'password');
 
   if (!user) return null;
 
